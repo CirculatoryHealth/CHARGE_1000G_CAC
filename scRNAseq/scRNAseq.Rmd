@@ -1,0 +1,1728 @@
+---
+title: "Mapping CAC susceptibility loci with single-cell resolution in carotid plaques."
+author: '[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan'
+date: '`r Sys.Date()`'
+output:
+  html_notebook: 
+    cache: yes
+    code_folding: hide
+    collapse: yes
+    df_print: paged
+    fig.align: center
+    fig_caption: yes
+    fig_height: 10
+    fig_retina: 2
+    fig_width: 12
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+mainfont: Helvetica
+subtitle: A 'druggable-MI-targets' project
+editor_options:
+  chunk_output_type: inline
+---
+```{r global_options, include=FALSE}
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/',
+                      eval = TRUE, warning = FALSE, message = FALSE)
+```
+
+_Clean the environment._
+```{r ClearEnvironment, echo = FALSE}
+# rm(list = ls())
+```
+
+_Set locations, and the working directory ..._
+```{r LocalSystem, echo = FALSE}
+### Operating System Version
+### Mac Pro
+# ROOT_loc = "/Volumes/EliteProQx2Media"
+# GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
+
+### MacBook
+ROOT_loc = "/Users/swvanderlaan"
+GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+
+### Generic Locations
+AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AESCRNA/prepped_data")
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+
+
+### SOME VARIABLES WE NEED DOWN THE LINE
+cat("\nDefining phenotypes and datasets.\n")
+PROJECTNAME="AESCRNA"
+
+cat("\nCreate a new analysis directory, including subdirectories.\n")
+# Analysis
+ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       FALSE)
+ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
+
+# Plots
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
+       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
+       FALSE)
+PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
+
+# QC plots
+ifelse(!dir.exists(file.path(PLOT_loc, "/QC")), 
+       dir.create(file.path(PLOT_loc, "/QC")), 
+       FALSE)
+QC_loc = paste0(PLOT_loc,"/QC")
+
+# Output files
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       FALSE)
+OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
+
+cat("\nSetting working directory and listing its contents.\n")
+setwd(paste0(PROJECT_loc))
+getwd()
+list.files()
+```
+
+_... a package-installation function ..._
+```{r Function: installations, echo=FALSE}
+install.packages.auto <- function(x) { 
+  x <- as.character(substitute(x)) 
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else { 
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented. 
+    # update.install.packages.auto(ask = FALSE) 
+    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
+  }
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else {
+    if (!requireNamespace("BiocManager"))
+      install.packages("BiocManager")
+    # BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
+    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  }
+}
+```
+
+_... and load those packages._
+```{r Setting: loading_packages, echo=FALSE}
+install.packages.auto("readr")
+install.packages.auto("optparse")
+install.packages.auto("tools")
+install.packages.auto("dplyr")
+install.packages.auto("tidyr")
+install.packages.auto("tidylog")
+library("tidylog", warn.conflicts = FALSE)
+install.packages.auto("naniar")
+
+# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
+# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
+# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
+library(data.table)
+
+install.packages.auto("tidyverse")
+install.packages.auto("knitr")
+install.packages.auto("DT")
+
+install.packages.auto("org.Hs.eg.db")
+install.packages.auto("mygene")
+install.packages.auto("EnhancedVolcano")
+
+install.packages.auto("haven")
+install.packages.auto("tableone")
+
+# install.packages.auto("Seurat") # latest version
+
+# Install the devtools package from Hadley Wickham
+install.packages.auto('devtools')
+# Replace '2.3.4' with your desired version
+# devtools::install_version(package = 'Seurat', version = package_version('2.3.4'))
+library("Seurat")
+
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors, echo=FALSE}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+### UtrechtScienceParkColoursScheme
+###
+### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
+### Forsomefunctionsyoushoulddividethesenumbersby255.
+### 
+###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
+###---------------------------------------------------------------------------------------
+###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
+###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
+###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
+###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
+###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
+###	6	  pink			      #D5267B (213,38,123)				      =>	6		
+###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
+###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
+###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
+###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
+###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
+###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
+###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
+###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
+###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
+###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
+###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
+###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
+###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
+###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
+###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
+###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
+###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
+###	24	green			      #49A01D (73,160,29)				      =>	24/Y
+###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
+###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
+###
+###	ADDITIONAL COLORS
+###	27	midgrey			#D7D8D7
+###	28	verylightgrey	#ECECEC"
+###	29	white			#FFFFFF
+###	30	black			#000000
+###----------------------------------------------------------------------------------------------
+
+uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
+                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
+                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
+                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
+                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
+                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
+                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
+                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
+                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
+                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+#ggplot2 default color palette
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+### ----------------------------------------------------------------------------
+```
+
+# ERA-CVD 'druggable-MI-targets'
+<!-- ![ERA-CVD logo]("Users/swvanderlaan/iCloud/Genomics/Projects/#Druggable-MI-Genes/Administration/ERA-CVD\ Logo_CMYK.jpg") -->
+
+For the ERA-CVD 'druggable-MI-targets' project (grantnumber: 01KL1802) we will perform two related RNA sequencing (RNAseq) experiments:
+
+1) conventional ('bulk') RNAseq using RNA extracted from carotid plaque samples, n ± 700. As of `r Today.Report` all samples have been selected and RNA has been extracted; quality control (QC) was performed and we have a dataset of 635 samples.
+
+2) single-cell RNAseq (scRNAseq) of at least n = 40 samples (20 females, 20 males). As of `r Today.Report` data is available of 40 samples (3 females, 15 males), we are extending sampling to get more female samples.
+
+Plaque samples are derived from carotid endarterectomies as part of the [Athero-Express Biobank Study](http:www/atheroexpress.nl) which is an ongoing study in the UMC Utrecht.
+
+
+# Background
+
+Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
+
+- IndSigSNPsforSander.xlsx
+- GeneList_15042020.xlsx
+
+```{r CAC targets}
+library(openxlsx)
+
+CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+
+CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
+
+
+DT::datatable(CAC_gene_list)
+
+DT::datatable(CAC_variants)
+
+```
+
+We will construct a list of genes to map to our scRNAseq data. 
+
+```{r CAC targets for mapping}
+
+CAC_target_genes <- unlist(CAC_gene_list$symbol)
+CAC_target_genes
+```
+
+
+# Load data
+First we will load the data:
+
+- scRNAseq experimental data and rename the cell types.
+- Athero-Express clinical data.
+
+## AESCRNA: single-cell RNAseq from carotid plaques
+
+Here we load the latest dataset from our Athero-Express Single Cell RNA experiment.
+
+```{r LoadData}
+
+scRNAseqData <- readRDS(paste0(RAWDATA, "/Seuset_40_patients/Seuset_40_patients.RDS"))
+scRNAseqData
+
+```
+
+The naming/classification is based on a combination conventional markers. We do not claim to know the exact identity of each cell, rather we refer to cells as 'KIT+ Mast cells"-like cells. Likewise we refer to the cell clusters as 'communities' of cells that exihibit similar properties, _i.e._ similar defining markers (_e.g. KIT_). 
+
+We will rename the cell types to human readable names. 
+```{r Change cell cummunity names}
+### change names for clarity
+backup.scRNAseqData = scRNAseqData
+# get the old names to change to new names
+UMAPPlot(scRNAseqData, label = FALSE, pt.size = 1.25, label.size = 4, group.by = "ident")
+
+unique(scRNAseqData@active.ident)
+
+celltypes <- c("CD14+CD68+ Macrophages I" = "CD14+CD68+ M I", 
+               "CD14+CD68+ Macrophages II" = "CD14+CD68+ M II", 
+               "CD14+CD68+ Macrophages III" = "CD14+CD68+ M III",
+               "CD3+CD8+ T cells I" = "CD3+CD8+ T I",
+               "CD3+CD8A+ T Cells II" = "CD3+CD8A+ T II ", 
+               "CD3+CD8 T cells III" = "CD3+CD8 T III", 
+               "CD3+CD4+ T Cells I" = "CD3+CD4+ T I", 
+               "CD3+CD4+ T Cells II" = "CD3+CD4+ T II", 
+               "CD3+CD4+ T Cells III" = "CD3+CD4+ T III", 
+               "CD34+ Endothelial Cells I" = "CD34+ EC I", 
+               "CD34+ Endothelial Cells II" = "CD34+ EC II", 
+               "Mixed Cells I" = "Mixed I", 
+               "Mixed Cells II" = "Mixed II", 
+               "ACTA2+ Smooth Muscle Cells" = "ACTA2+ SMC", 
+               "NCAM1+ Natural Killer Cells" = "NCAM1+ NK", 
+               "KIT+ Mast Cells" = "KIT+ MC",
+               "CD79A+ B Cells I" = "CD79A+ B I", 
+               "CD79A+ B Cells II" = "CD79A+ B II")
+
+scRNAseqData <- Seurat::RenameIdents(object = scRNAseqData, 
+                                       celltypes)
+```
+
+```{r Change cell cummunity names - new plot}
+UMAPPlot(scRNAseqData, label = TRUE, pt.size = 1.25, label.size = 4, group.by = "ident",
+         repel = TRUE)
+
+```
+
+## Athero-Express Biobank Study: clinical data
+
+Loading Athero-Express clinical data.
+```{r LoadAEDB}
+require(haven)
+
+# AEDB <- haven::read_sav(paste0(AEDB_loc, "/2019-3NEW_AtheroExpressDatabase_ScientificAE_02072019_IC_added.sav"))
+AEDB <- haven::read_sav(paste0(AEDB_loc, "/2020_1_NEW_AtheroExpressDatabase_ScientificAE_16-03-2020.sav"))
+
+```
+
+### Fix clinical data
+
+We need to be very strict in defining _symptoms._ Therefore we will fix a new variable that groups _symptoms_ at inclusion.
+
+Coding of _symptoms_ is as follows:
+
+- missing	-999	
+- Asymptomatic	0	
+- TIA	1	
+- minor stroke	2	
+- Major stroke	3	
+- Amaurosis fugax	4	
+- Four vessel disease	5	
+- Vertebrobasilary TIA	7	
+- Retinal infarction	8	
+- Symptomatic, but aspecific symtoms	9
+- Contralateral symptomatic occlusion	10	
+- retinal infarction	11	
+- armclaudication due to occlusion subclavian artery, CEA needed for bypass	12	
+- retinal infarction + TIAs	13	
+- Ocular ischemic syndrome	14	
+- ischemisch glaucoom	15	
+- subclavian steal syndrome	16	
+- TGA	17
+
+We will group as follows:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13
+3. Stroke > 2, 3
+4. Ocular > 4, 14, 15
+5. Retinal infarction > 8, 11
+6. Other > 5, 9, 10, 12, 16, 17
+
+
+```{r FixSymptoms}
+
+# Fix symptoms
+
+attach(AEDB)
+AEDB[,"Symptoms.5G"] <- NA
+AEDB$Symptoms.5G[sympt == 0] <- "Asymptomatic"
+AEDB$Symptoms.5G[sympt == 1 | sympt == 7 | sympt == 13] <- "TIA"
+AEDB$Symptoms.5G[sympt == 2 | sympt == 3] <- "Stroke"
+AEDB$Symptoms.5G[sympt == 4 | sympt == 14 | sympt == 15 ] <- "Ocular"
+AEDB$Symptoms.5G[sympt == 8 | sympt == 11] <- "Retinal infarction"
+AEDB$Symptoms.5G[sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Other"
+
+
+# AsymptSympt
+AEDB[,"AsymptSympt"] <- NA
+AEDB$AsymptSympt[sympt == -999] <- NA
+AEDB$AsymptSympt[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3] <- "Symptomatic"
+AEDB$AsymptSympt[sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Ocular and others"
+
+# AsymptSympt
+AEDB[,"AsymptSympt2G"] <- NA
+AEDB$AsymptSympt2G[sympt == -999] <- NA
+AEDB$AsymptSympt2G[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt2G[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3 | sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Symptomatic"
+
+detach(AEDB)
+
+# table(AEDB$sympt, useNA = "ifany")
+# table(AEDB$AsymptSympt2G, useNA = "ifany")
+# table(AEDB$Symptoms.5G, useNA = "ifany")
+# 
+# table(AEDB$AsymptSympt2G, AEDB$sympt, useNA = "ifany")
+# table(AEDB$Symptoms.5G, AEDB$sympt, useNA = "ifany")
+table(AEDB$AsymptSympt2G, AEDB$Symptoms.5G, useNA = "ifany")
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "sympt", "Symptoms.5G", "AsymptSympt"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# table(AEDB.temp$Symptoms.5G, AEDB.temp$AsymptSympt)
+# 
+# rm(AEDB.temp)
+```
+
+We will also fix the _plaquephenotypes_ variable.  
+
+Coding of symptoms is as follows:
+
+- missing	-999	
+- not relevant -888
+- fibrous	1	
+- fibroatheromatous	2	
+- atheromatous	3	
+
+
+```{r FixPlaquePhenotypes}
+
+# Fix plaquephenotypes
+attach(AEDB)
+AEDB[,"OverallPlaquePhenotype"] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == 1] <- "fibrous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 2] <- "fibroatheromatous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 3] <- "atheromatous"
+detach(AEDB)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "plaquephenotype", "OverallPlaquePhenotype"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+We will also fix the _diabetes_ status variable.
+
+```{r FixDiabetes}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"DiabetesStatus"] <- NA
+AEDB$DiabetesStatus[DM.composite == -999] <- NA
+AEDB$DiabetesStatus[DM.composite == 0] <- "Control (no Diabetes Dx/Med)"
+AEDB$DiabetesStatus[DM.composite == 1] <- "Diabetes"
+detach(AEDB)
+
+table(AEDB$DM.composite, AEDB$DiabetesStatus)
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+
+We will also fix the _smoking_ status variable. We are interested in whether someone never, ever or is currently (at the time of inclusion) smoking. This is based on the questionnaire. 
+
+- `diet801`: are you a smoker?
+- `diet802`: did you smoke in the past?
+
+We already have some variables indicating smoking status:
+
+- `SmokingReported`: patient has reported to smoke.
+- `SmokingYearOR`: smoking in the year of surgery?
+- `SmokerCurrent`: currently smoking?
+
+
+
+```{r FixSmoking}
+require(labelled)
+AEDB$diet801 <- to_factor(AEDB$diet801)
+AEDB$diet802 <- to_factor(AEDB$diet802)
+AEDB$diet805 <- to_factor(AEDB$diet805)
+AEDB$SmokingReported <- to_factor(AEDB$SmokingReported)
+AEDB$SmokerCurrent <- to_factor(AEDB$SmokerCurrent)
+AEDB$SmokingYearOR <- to_factor(AEDB$SmokingYearOR)
+
+# table(AEDB$diet801)
+# table(AEDB$diet802)
+# table(AEDB$SmokingReported)
+# table(AEDB$SmokerCurrent)
+# table(AEDB$SmokingYearOR)
+# table(AEDB$SmokingReported, AEDB$SmokerCurrent, useNA = "ifany", dnn = c("Reported smoking", "Current smoker"))
+# 
+# table(AEDB$diet801, AEDB$diet802, useNA = "ifany", dnn = c("Smoker", "Past smoker"))
+
+cat("\nFixing smoking status.\n")
+attach(AEDB)
+AEDB[,"SmokerStatus"] <- NA
+AEDB$SmokerStatus[diet802 == "don't know"] <- "Never smoked"
+AEDB$SmokerStatus[diet802 == "I still smoke"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "no"] <- "Never smoked"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "yes"] <- "Ex-smoker"
+AEDB$SmokerStatus[SmokerCurrent == "yes"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no data available/missing"] <- NA
+# AEDB$SmokerStatus[is.na(SmokerCurrent)] <- "Never smoked"
+detach(AEDB)
+
+cat("\n* Current smoking status.\n")
+table(AEDB$SmokerCurrent,
+      useNA = "ifany", 
+      dnn = c("Current smoker"))
+
+cat("\n* Updated smoking status.\n")
+table(AEDB$SmokerStatus,
+      useNA = "ifany", 
+      dnn = c("Updated smoking status"))
+
+cat("\n* Comparing to 'SmokerCurrent'.\n")
+table(AEDB$SmokerStatus, AEDB$SmokerCurrent, 
+      useNA = "ifany", 
+      dnn = c("Updated smoking status", "Current smoker"))
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+We will also fix the _alcohol_ status variable.
+
+
+```{r FixAlcohol}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"AlcoholUse"] <- NA
+AEDB$AlcoholUse[diet810 == -999] <- NA
+AEDB$AlcoholUse[diet810 == 0] <- "No"
+AEDB$AlcoholUse[diet810 == 1] <- "Yes"
+detach(AEDB)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+
+### Prepare baseline characteristics
+
+We are interested in the following variables at baseline.
+
+- Age (years)
+- Female sex (N, %)
+- Hypertension (N, %)
+- SBP (mmHg)
+- DBP (mmHg)
+- Diabetes mellitus (N, %)
+- Total cholesterol levels (mg/dL)
+- LDL cholesterol levels (mg/dL)
+- HDL cholesterol levels (mg/dL)
+- Triglyceride levels (mg/dL)
+- Use of statins (N, %)
+- Use of antiplatelet drugs (N, %)
+- BMI (kg/m²)
+- Smoking status (N, %)
+  - Never smokers
+  - Ex-smokers
+  - Current smokers
+- History of CAD (N, %)
+- History of PAD (N, %)
+- Clinical manifestations
+  - Asymptomatic
+  - Amaurosis fugax
+  - TIA
+  - Stroke
+- eGFR (mL/min/1.73 m²)
+- Testosterone (nmol/L)
+
+```{r Baseline AEDB: preparation}
+cat("====================================================================================================\n")
+cat("SELECTION THE SHIZZLE\n")
+
+### Artery levels
+# AEdata$Artery_summary: 
+#           value                                                                                   label
+# NOT USE - 0 No artery known (yet), no surgery (patient ill, died, exited study), re-numbered to AAA
+# USE - 1                                                                  carotid (left & right)
+# USE - 2                                               femoral/iliac (left, right or both sides)
+# NOT USE - 3                                               other carotid arteries (common, external)
+# NOT USE - 4                                   carotid bypass and injury (left, right or both sides)
+# NOT USE - 5                                                         aneurysmata (carotid & femoral)
+# NOT USE - 6                                                                                   aorta
+# NOT USE - 7                                            other arteries (renal, popliteal, vertebral)
+# NOT USE - 8                        femoral bypass, angioseal and injury (left, right or both sides)
+
+### AEdata$informedconsent
+#           value                                                                                           label
+# NOT USE - -999                                                                                         missing
+# NOT USE - 0                                                                                        no, died
+# USE - 1                                                                                             yes
+# USE - 2                                                             yes, health treatment when possible
+# USE - 3                                                                        yes, no health treatment
+# USE - 4                                                yes, no health treatment, no commercial business
+# NOT USE - 5                                                          yes, no tissue, no commerical business
+# NOT USE - 6                      yes, no tissue, no questionnaires, no medical info, no commercial business
+# USE - 7                             yes, no questionnaires, no health treatment, no commercial business
+# USE - 8                                          yes, no questionnaires, health treatment when possible
+# NOT USE - 9                  yes, no tissue, no questionnaires, no health treatment, no commerical business
+# USE - 10                               yes, no health treatment, no medical info, no commercial business
+# NOT USE - 11 yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business
+# USE - 12                                                     yes, no questionnaires, no health treatment
+# NOT USE - 13                                                             yes, no tissue, no health treatment
+# NOT USE - 14                                                               yes, no tissue, no questionnaires
+# NOT USE - 15                                                  yes, no tissue, health treatment when possible
+# NOT USE - 16                                                                                  yes, no tissue
+# USE - 17                                                                     yes, no commerical business
+# USE - 18                                     yes, health treatment when possible, no commercial business
+# USE - 19                                                    yes, no medical info, no commercial business
+# USE - 20                                                                          yes, no questionnaires
+# NOT USE - 21                         yes, no tissue, no questionnaires, no health treatment, no medical info
+# NOT USE - 22                  yes, no tissue, no questionnaires, no health treatment, no commercial business
+# USE - 23                                                                            yes, no medical info
+# USE - 24                                                  yes, no questionnaires, no commercial business
+# USE - 25                                    yes, no questionnaires, no health treatment, no medical info
+# USE - 26                  yes, no questionnaires, health treatment when possible, no commercial business
+# USE - 27                                                      yes,  no health treatment, no medical info
+# NOT USE - 28                                                                             no, doesn't want to
+# NOT USE - 29                                                                              no, unable to sign
+# NOT USE - 30                                                                                 no, no reaction
+# NOT USE - 31                                                                                        no, lost
+# NOT USE - 32                                                                                     no, too old
+# NOT USE - 34                                            yes, no medical info, health treatment when possible
+# NOT USE - 35                                             no (never asked for IC because there was no tissue)
+# USE - 36                    yes, no medical info, no commercial business, health treatment when possible
+# NOT USE - 37                                                                                    no, endpoint
+# USE - 38                                                         wil niets invullen, wel alles gebruiken
+# USE - 39                                           second informed concents: yes, no commercial business
+# NOT USE - 40                                                                              nooit geincludeerd
+
+cat("- sanity checking PRIOR to selection")
+library(data.table)
+require(labelled)
+ae.gender <- to_factor(AEDB$Gender)
+ae.hospital <- to_factor(AEDB$Hospital)
+table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"))
+ae.artery <- to_factor(AEDB$Artery_summary)
+table(ae.artery, ae.gender, dnn = c("Sex", "Artery"))
+
+rm(ae.gender, ae.hospital, ae.artery)
+
+# I change numeric and factors manually because, well, I wouldn't know how to fix it otherwise
+# to have this 'tibble' work with 'tableone'... :-)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$diastoli <- as.numeric(AEDB$diastoli)
+AEDB$systolic <- as.numeric(AEDB$systolic)
+
+AEDB$TC_finalCU <- as.numeric(AEDB$TC_finalCU)
+AEDB$LDL_finalCU <- as.numeric(AEDB$LDL_finalCU)
+AEDB$HDL_finalCU <- as.numeric(AEDB$HDL_finalCU)
+AEDB$TG_finalCU <- as.numeric(AEDB$TG_finalCU)
+
+AEDB$TC_final <- as.numeric(AEDB$TC_final)
+AEDB$LDL_final <- as.numeric(AEDB$LDL_final)
+AEDB$HDL_final <- as.numeric(AEDB$HDL_final)
+AEDB$TG_final <- as.numeric(AEDB$TG_final)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$GFR_MDRD <- as.numeric(AEDB$GFR_MDRD)
+AEDB$BMI <- as.numeric(AEDB$BMI)
+AEDB$eCigarettes <- as.numeric(AEDB$eCigarettes)
+AEDB$ePackYearsSmoking <- as.numeric(AEDB$ePackYearsSmoking)
+AEDB$EP_composite_time <- as.numeric(AEDB$EP_composite_time)
+
+AEDB$macmean0 <- as.numeric(AEDB$macmean0)
+AEDB$smcmean0 <- as.numeric(AEDB$smcmean0)
+AEDB$neutrophils <- as.numeric(AEDB$neutrophils)
+AEDB$Mast_cells_plaque <- as.numeric(AEDB$Mast_cells_plaque)
+AEDB$vessel_density_averaged <- as.numeric(AEDB$vessel_density_averaged)
+
+require(labelled)
+AEDB$ORyear <- to_factor(AEDB$ORyear)
+AEDB$Gender <- to_factor(AEDB$Gender)
+AEDB$Hospital <- to_factor(AEDB$Hospital)
+AEDB$KDOQI <- to_factor(AEDB$KDOQI)
+AEDB$BMI_WHO <- to_factor(AEDB$BMI_WHO)
+AEDB$DiabetesStatus <- to_factor(AEDB$DiabetesStatus)
+AEDB$SmokerStatus <- to_factor(AEDB$SmokerStatus)
+AEDB$AlcoholUse <- to_factor(AEDB$AlcoholUse)
+
+AEDB$Hypertension.selfreport <- to_factor(AEDB$Hypertension1)
+AEDB$Hypertension.selfreportdrug <- to_factor(AEDB$Hypertension2)
+AEDB$Hypertension.composite <- to_factor(AEDB$Hypertension.composite)
+AEDB$Hypertension.drugs <- to_factor(AEDB$Hypertension.drugs)
+
+AEDB$Med.anticoagulants <- to_factor(AEDB$Med.anticoagulants)
+AEDB$Med.all.antiplatelet <- to_factor(AEDB$Med.all.antiplatelet)
+AEDB$Med.Statin.LLD <- to_factor(AEDB$Med.Statin.LLD)
+
+AEDB$Stroke_Dx <- to_factor(AEDB$Stroke_Dx)
+AEDB$CAD_history <- to_factor(AEDB$CAD_history)
+AEDB$PAOD <- to_factor(AEDB$PAOD)
+AEDB$Peripheral.interv <- to_factor(AEDB$Peripheral.interv)
+
+AEDB$sympt <- to_factor(AEDB$sympt)
+AEDB$Symptoms.3g <- to_factor(AEDB$Symptoms.3g)
+AEDB$Symptoms.4g <- to_factor(AEDB$Symptoms.4g)
+AEDB$Symptoms.5G <- to_factor(AEDB$Symptoms.5G)
+AEDB$AsymptSympt <- to_factor(AEDB$AsymptSympt)
+AEDB$AsymptSympt2G <- to_factor(AEDB$AsymptSympt2G)
+
+AEDB$restenos <- to_factor(AEDB$restenos)
+AEDB$stenose <- to_factor(AEDB$stenose)
+AEDB$EP_composite <- to_factor(AEDB$EP_composite)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+AEDB$OverallPlaquePhenotype <- to_factor(AEDB$OverallPlaquePhenotype)
+
+AEDB$Artery_summary <- to_factor(AEDB$Artery_summary)
+
+AEDB$informedconsent <- to_factor(AEDB$informedconsent)
+
+AEDB.CEA <- subset(AEDB,
+                    (Artery_summary == "carotid (left & right)" | Artery_summary == "other carotid arteries (common, external)") & # we only want carotids
+                       informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd" & 
+                     !is.na(AsymptSympt2G))
+# AEDB.CEA[1:10, 1:10]
+dim(AEDB.CEA)
+```
+
+
+```{r Baseline AEDB: creation}
+cat("===========================================================================================\n")
+cat("CREATE BASELINE TABLE\n")
+
+# Baseline table variables
+basetable_vars = c("Hospital", "ORyear",
+                   "Age", "Gender", 
+                   "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
+                   "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   "systolic", "diastoli", "GFR_MDRD", "BMI", 
+                   "KDOQI", "BMI_WHO", 
+                   "SmokerStatus", "AlcoholUse",
+                   "DiabetesStatus", 
+                   "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                   "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
+                   "restenos", "stenose",
+                   "CAD_history", "PAOD", "Peripheral.interv", 
+                   "EP_composite", "EP_composite_time",
+                   "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin",
+                   "neutrophils", "Mast_cells_plaque",
+                   "IPH.bin", "vessel_density_averaged",
+                   "Calc.bin", "Collagen.bin", 
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype")
+
+basetable_bin = c("Gender", 
+                  "KDOQI", "BMI_WHO", 
+                  "SmokerStatus", "AlcoholUse",
+                  "DiabetesStatus", 
+                  "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                  "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
+                  "restenos", "stenose",
+                  "CAD_history", "PAOD", "Peripheral.interv", 
+                  "EP_composite", "Macrophages.bin", "SMC.bin",
+                  "IPH.bin", 
+                  "Calc.bin", "Collagen.bin", 
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype")
+# basetable_bin
+
+basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
+# basetable_con
+```
+
+### Athero-Express Biobank Study: baseline characteristics
+Showing the baseline table of the whole Athero-Express Biobank.
+```{r Baseline AEDB: Visualize}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         # strata = "Gender",
+                                         data = AEDB.CEA, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:3]
+
+```
+
+
+## AESCRNA: baseline characteristics
+
+```{r Baseline: creation}
+metadata <- scRNAseqData@meta.data %>% as_tibble()
+scRNAseqDataMeta <- metadata %>% distinct(Patient, .keep_all = TRUE)
+
+scRNAseqDataMetaAE <- merge(scRNAseqDataMeta, AEDB, by.x = "Patient", by.y = "STUDY_NUMBER", sort = FALSE, all.x = TRUE)
+dim(scRNAseqDataMetaAE)
+
+# Replace missing data 
+# Ref: https://cran.r-project.org/web/packages/naniar/vignettes/replace-with-na.html
+require(naniar)
+
+na_strings <- c("NA", "N A", "N / A", "N/A", "N/ A", 
+                "Not Available", "Not available", 
+                "missing", 
+                "-999", "-99", 
+                "No data available/missing", "No data available/Missing")
+# Then you write ~.x %in% na_strings - which reads as “does this value occur in the list of NA strings”.
+
+scRNAseqDataMetaAE %>%
+  replace_with_na_all(condition = ~.x %in% na_strings)
+
+cat("====================================================================================================")
+cat("SELECTION THE SHIZZLE")
+
+cat("- sanity checking PRIOR to selection")
+library(data.table)
+require(labelled)
+ae.gender <- to_factor(scRNAseqDataMetaAE$Gender)
+ae.hospital <- to_factor(scRNAseqDataMetaAE$Hospital)
+table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"), useNA = "ifany")
+
+ae.artery <- to_factor(scRNAseqDataMetaAE$Artery_summary)
+table(ae.artery, ae.gender, dnn = c("Sex", "Artery"), useNA = "ifany")
+
+ae.ic <- to_factor(scRNAseqDataMetaAE$informedconsent)
+table(ae.ic, ae.gender, useNA = "ifany")
+
+rm(ae.gender, ae.hospital, ae.artery, ae.ic)
+
+
+scRNAseqDataMetaAE.all <- subset(scRNAseqDataMetaAE,
+                            (Artery_summary == "carotid (left & right)" | Artery_summary == "other carotid arteries (common, external)" ) & # we only want carotids
+                              informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                              informedconsent != "no, died" &
+                              informedconsent != "yes, no tissue, no commerical business" &
+                              informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                              informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                              informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                              informedconsent != "yes, no tissue, no health treatment" &
+                              informedconsent != "yes, no tissue, no questionnaires" &
+                              informedconsent != "yes, no tissue, health treatment when possible" &
+                              informedconsent != "yes, no tissue" &
+                              informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                              informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                              informedconsent != "no, doesn't want to" &
+                              informedconsent != "no, unable to sign" &
+                              informedconsent != "no, no reaction" &
+                              informedconsent != "no, lost" &
+                              informedconsent != "no, too old" &
+                              informedconsent != "yes, no medical info, health treatment when possible" & 
+                              informedconsent != "no (never asked for IC because there was no tissue)" &
+                              informedconsent != "no, endpoint" &
+                              informedconsent != "nooit geincludeerd")
+# scRNAseqDataMetaAE.all[1:10, 1:10]
+dim(scRNAseqDataMetaAE.all)
+# DT::datatable(scRNAseqDataMetaAE.all)
+
+```
+
+Showing the baseline table.
+```{r Baseline: Visualize}
+cat("===========================================================================================")
+cat("CREATE BASELINE TABLE")
+
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+scRNAseqDataMetaAE.all.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                                  # factorVars = basetable_bin,
+                                                  # strata = "Gender",
+                                                  data = scRNAseqDataMetaAE.all, includeNA = TRUE), 
+                                   nonnormal = c(), 
+                                   quote = FALSE, showAllLevels = TRUE,
+                                   format = "p", 
+                                   contDigits = 3)[,1:2]
+
+```
+
+Writing the baseline table to Excel format. 
+```{r Baseline: write}
+# Write basetable
+require(openxlsx)
+write.xlsx(file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AE.BaselineTable.scRNAseq.xlsx"), 
+           format(scRNAseqDataMetaAE.all.tableOne, digits = 5, scientific = FALSE) , row.names = TRUE, col.names = TRUE)
+
+
+```
+
+
+# AESCRNA
+
+## Quality control
+Here review the number of cells per sample, plate, and patients. And plot the ratio's per sample and study number.
+```{r QualityControl}
+## check stuff
+cat("\nHow many cells per type ...?")
+sort(table(scRNAseqData@meta.data$SCT_snn_res.0.8))
+
+cat("\n\nHow many cells per plate ...?")
+sort(table(scRNAseqData@meta.data$ID))
+
+cat("\n\nHow many cells per type per plate ...?")
+table(scRNAseqData@meta.data$SCT_snn_res.0.8, scRNAseqData@meta.data$ID)
+
+cat("\n\nHow many cells per patient ...?")
+sort(table(scRNAseqData@meta.data$Patient))
+
+cat("\n\nVisualizing these ratio's per study number and sample ...?")
+UMAPPlot(scRNAseqData, label = TRUE, pt.size = 1.25, label.size = 4, group.by = "ident",
+         repel = TRUE)
+ggsave(paste0(PLOT_loc, "/", Today, ".UMAP.png"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".UMAP.ps"), plot = last_plot())
+
+
+barplot(prop.table(x = table(scRNAseqData@active.ident, scRNAseqData@meta.data$Patient)), 
+        cex.axis = 1.0, cex.names = 0.5, las = 1,
+        col = uithof_color, xlab = "study number", legend.text = FALSE, args.legend = list(x = "bottom"))
+dev.copy(pdf, paste0(QC_loc, "/", Today, ".cell_ratios_per_sample.pdf"))
+dev.off()
+
+barplot(prop.table(x = table(scRNAseqData@active.ident, scRNAseqData@meta.data$ID)), 
+        cex.axis = 1.0, cex.names = 0.5, las = 2,
+        col = uithof_color, xlab = "sample ID", legend.text = FALSE, args.legend = list(x = "bottom"))
+dev.copy(pdf, paste0(QC_loc, "/", Today, ".cell_ratios_per_sample_per_plate.pdf"))
+dev.off()
+
+
+
+```
+
+## Visualisations
+
+Let's project known cellular markers.
+
+```{r Visualisation: tSNE Exploration}
+
+UMAPPlot(scRNAseqData, label = FALSE, pt.size = 1.25, label.size = 4, group.by = "ident",
+         repel = TRUE)
+
+# endothelial cells
+FeaturePlot(scRNAseqData, features = c("CD34"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("EDN1"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("EDNRA", "EDNRB"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("CDH5", "PECAM1"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("ACKR1"), cols =  c("#ECECEC", "#DB003F"))
+
+# SMC
+FeaturePlot(scRNAseqData, features = c("MYH11"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("LGALS3", "ACTA2"), cols =  c("#ECECEC", "#DB003F"))
+
+# macrophages
+FeaturePlot(scRNAseqData, features = c("CD14", "CD68"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("CD36"), cols =  c("#ECECEC", "#DB003F"))
+
+# t-cells
+FeaturePlot(scRNAseqData, features = c("CD3E"), cols =  c("#ECECEC", "#DB003F"))
+FeaturePlot(scRNAseqData, features = c("CD4"), cols =  c("#ECECEC", "#DB003F"))
+# FeaturePlot(scRNAseqData, features = c("CD8"), cols =  c("#ECECEC", "#DB003F"))
+
+# b-cells
+FeaturePlot(scRNAseqData, features = c("CD79A"), cols =  c("#ECECEC", "#DB003F"))
+
+# mast cells
+FeaturePlot(scRNAseqData, features = c("KIT"), cols =  c("#ECECEC", "#DB003F"))
+
+# NK cells
+FeaturePlot(scRNAseqData, features = c("NCAM1"), cols =  c("#ECECEC", "#DB003F"))
+
+```
+
+
+## Targets of interest: 
+
+We check whether the targets genes, _`r CAC_target_genes`_, were sequenced using our method (STARseq). 
+
+Several genes are not present or have different names, these are listed here, and were manually removed from/changed in the list.
+
+- AC011294.3
+- C9orf53 => CDKN2A-DT, not found
+- RP11-145E5.5
+- AL137026.1
+- ZNF32
+- BCAM => CD239, not found
+- PVRL2 => NECTIN2
+- C6orf195
+
+### Expression in cell communities
+```{r Visualisation: Targets}
+
+CAC_target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "ZNF32", "BCAM", "PVRL2", "C6orf195")
+
+temp = CAC_target_genes[!CAC_target_genes %in% CAC_target_genes_rm]
+
+CAC_target_genes_qc <- c(temp, "NECTIN2", "LINC01600")
+
+# VlnPlot(scRNAseqData, features = "LINC01600")
+
+for (GENE in CAC_target_genes_qc){
+  print(paste0("Projecting the expression of ", GENE, "."))
+
+  vp1 <-  VlnPlot(scRNAseqData, features = GENE) + 
+    xlab("cell communities") + 
+    ylab(bquote("normalized expression")) +
+    theme(axis.title.x = element_text(color = "#000000", size = 14, face = "bold"), 
+            axis.title.y = element_text(color = "#000000", size = 14, face = "bold"), 
+            legend.position = "none")
+    ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".png"), plot = last_plot())
+    ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".ps"), plot = last_plot())
+  
+  print(vp1)
+  
+}
+
+
+library(RColorBrewer)
+
+p1 <- DotPlot(scRNAseqData, features = CAC_target_genes_qc,
+        cols = "RdBu")
+
+p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
+
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.png"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ps"), plot = last_plot())
+
+rm(p1)
+
+FeaturePlot(scRNAseqData, features = c(CAC_target_genes_qc),
+            cols =  c("#ECECEC", "#DB003F", "#9A3480","#1290D9"),
+            combine = TRUE)
+
+ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.png"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.ps"), plot = last_plot())
+
+
+```
+
+### Differential expression between cell communities
+
+Here we project genes to only the broad cell communities: 
+
+- macrophages
+- endothelial cells
+- smooth muscle cells
+- T-cells
+- B-cells
+- Mast cells
+- NK-cells
+- Mixed cells
+
+
+#### Macrophages
+
+Comparison between the macrophages cell communities (_CD14/CD68_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano MAC}
+N_GENES=20552
+MAC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III"), 
+                          ident.2 = c(#"CD14+CD68+ M I", 
+                                      #"CD14+CD68+ M II", 
+                                      #"CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      "ACTA2+ SMC", 
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(MAC.markers)
+
+MAC_Volcano_TargetsA = EnhancedVolcano(MAC.markers,
+    lab = rownames(MAC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "Macrophage markers\n(Macrophage communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+MAC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.MAC.DEG.Targets.pdf"), 
+       plot = MAC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results MAC}
+library(tibble)
+MAC.markers <- add_column(MAC.markers, Gene = row.names(MAC.markers), .before = 1)
+
+temp <- MAC.markers[MAC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results MAC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MAC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+#### Smooth muscle cells
+
+Comparison between the smooth muscle cell communities (_ACTA2_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano SMC}
+N_GENES=20552
+SMC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("ACTA2+ SMC"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      # "ACTA2+ SMC", 
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(SMC.markers)
+
+SMC_Volcano_TargetsA = EnhancedVolcano(SMC.markers,
+    lab = rownames(SMC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "SMC markers\n(SMC communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+SMC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.SMC.DEG.Targets.pdf"), 
+       plot = SMC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results SMC}
+library(tibble)
+SMC.markers <- add_column(SMC.markers, Gene = row.names(SMC.markers), .before = 1)
+
+temp <- SMC.markers[SMC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results SMC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".SMC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+#### Endothelial cells
+
+Comparison between the endothelial cell communities (_CD34_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano EC}
+N_GENES=20552
+EC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("CD34+ EC I", "CD34+ EC II"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      # "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      "ACTA2+ SMC",
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(EC.markers)
+
+EC_Volcano_TargetsA = EnhancedVolcano(EC.markers,
+    lab = rownames(EC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "Endothelial cell markers\n(EC communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+EC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.EC.DEG.Targets.pdf"), 
+       plot = EC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results EC}
+library(tibble)
+EC.markers <- add_column(EC.markers, Gene = row.names(EC.markers), .before = 1)
+
+temp <- EC.markers[EC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results EC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".EC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+#### T-cells
+
+Comparison between the T-cell communities (_CD3/CD4/CD8_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano Tcell}
+N_GENES=20552
+TC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      # "CD3+CD8+ T I",
+                                      # "CD3+CD8A+ T II ", 
+                                      # "CD3+CD8 T III", 
+                                      # "CD3+CD4+ T I", 
+                                      # "CD3+CD4+ T II", 
+                                      # "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      "ACTA2+ SMC",
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(TC.markers)
+
+TC_Volcano_TargetsA = EnhancedVolcano(TC.markers,
+    lab = rownames(TC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "T-cell markers\n(T-cell communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+TC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.TC.DEG.Targets.pdf"), 
+       plot = TC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results TC}
+library(tibble)
+TC.markers <- add_column(TC.markers, Gene = row.names(TC.markers), .before = 1)
+
+temp <- TC.markers[TC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results TC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".TC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+#### B-cells
+
+Comparison between the B-cell communities (_CD79A_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano Bcell}
+N_GENES=20552
+BC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("CD79A+ B I", 
+                                      "CD79A+ B II"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      "ACTA2+ SMC",
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC"))
+
+DT::datatable(BC.markers)
+
+BC_Volcano_TargetsA = EnhancedVolcano(BC.markers,
+    lab = rownames(BC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "B-cell markers\n(B-cell communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+BC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.BC.DEG.Targets.pdf"), 
+       plot = BC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results BC}
+library(tibble)
+BC.markers <- add_column(BC.markers, Gene = row.names(BC.markers), .before = 1)
+
+temp <- BC.markers[BC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results BC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".BC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+#### Mast cells
+
+Comparison between the mast cell communities (_KIT_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano Mast}
+N_GENES=20552
+MC.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("KIT+ MC"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I", 
+                                      "Mixed II", 
+                                      "ACTA2+ SMC",
+                                      "NCAM1+ NK", 
+                                      # "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(MC.markers)
+
+MC_Volcano_TargetsA = EnhancedVolcano(MC.markers,
+    lab = rownames(MC.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "Mast cell markers\n(Mast cell communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+MC_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.MC.DEG.Targets.pdf"), 
+       plot = MC_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results MC}
+library(tibble)
+MC.markers <- add_column(MC.markers, Gene = row.names(MC.markers), .before = 1)
+
+temp <- MC.markers[MC.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results MC: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MC.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+#### NK-cells
+
+Comparison between the natural killer cell communities (_NCAM1_<sup>+</sup>), and all other communities.
+```{r Visualisation: Volcano NK}
+N_GENES=20552
+NK.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("NCAM1+ NK"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      "Mixed I",
+                                      "Mixed II",
+                                      "ACTA2+ SMC", 
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(NK.markers)
+
+NK_Volcano_TargetsA = EnhancedVolcano(NK.markers,
+    lab = rownames(NK.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "NK markers\n(NK-cell communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+NK_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.NK.DEG.Targets.pdf"), 
+       plot = NK_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results NK}
+library(tibble)
+NK.markers <- add_column(NK.markers, Gene = row.names(NK.markers), .before = 1)
+
+temp <- NK.markers[NK.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results NK: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".NK.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+#### Mixed cells
+
+Comparison between the mixed cell communities, and all other communities.
+```{r Visualisation: Volcano MIXED}
+N_GENES=20552
+MIXED.markers <- FindMarkers(object = scRNAseqData, 
+                          ident.1 = c("Mixed I", 
+                                      "Mixed II"), 
+                          ident.2 = c("CD14+CD68+ M I", 
+                                      "CD14+CD68+ M II", 
+                                      "CD14+CD68+ M III",
+                                      "CD3+CD8+ T I",
+                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8 T III", 
+                                      "CD3+CD4+ T I", 
+                                      "CD3+CD4+ T II", 
+                                      "CD3+CD4+ T III", 
+                                      "CD34+ EC I", "CD34+ EC II",
+                                      # "Mixed I", 
+                                      # "Mixed II", 
+                                      "ACTA2+ SMC", 
+                                      "NCAM1+ NK", 
+                                      "KIT+ MC",
+                                      "CD79A+ B I", 
+                                      "CD79A+ B II"))
+
+DT::datatable(MIXED.markers)
+
+MIXED_Volcano_TargetsA = EnhancedVolcano(MIXED.markers,
+    lab = rownames(MIXED.markers),
+    x = "avg_logFC",
+    y = "p_val_adj",
+    selectLab = CAC_target_genes_qc,
+    axisLabSize = 12,
+    xlab = "average fold-change",
+    title = "Mixed markers\n(Mixed cell communities vs the rest)",
+    titleLabSize = 14,
+    pCutoff = 0.05/N_GENES, # 20552 genes
+    FCcutoff = 1.25,
+    transcriptPointSize = 1.5,
+    transcriptLabSize = 3.0,
+    legend=c('NS','avg. fold-change','P',
+      'P & avg. fold-change'),
+    legendPosition = "right",
+    legendLabSize = 10,
+    legendIconSize = 3.0,
+    drawConnectors = TRUE,
+    widthConnectors = 0.2,
+    colConnectors = "#595A5C",
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE)
+MIXED_Volcano_TargetsA
+ggsave(paste0(PLOT_loc, "/", Today, ".Volcano.MIXED.DEG.Targets.pdf"), 
+       plot = MIXED_Volcano_TargetsA)
+```
+
+The target results are given below and written to a file.
+```{r Results MIXED}
+library(tibble)
+MIXED.markers <- add_column(MIXED.markers, Gene = row.names(MIXED.markers), .before = 1)
+
+temp <- MIXED.markers[MIXED.markers$Gene %in% CAC_target_genes_qc,]
+
+DT::datatable(temp)
+```
+
+```{r Results MIXED: writing}
+fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MIXED.DEG.Targets.txt"),
+       quote = FALSE,
+       sep = "\t", 
+       showProgress = FALSE, verbose = FALSE)
+```
+
+
+# Session information
+
+------
+
+    Version:      v1.0.0
+    Last update:  2020-06-17
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to load single-cell RNA sequencing (scRNAseq) data, and perform quality control (QC), and initial mapping to cells.
+    Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
+    
+    Change log
+    * v1.0.0 Initial version
+
+------
+
+```{r eval = TRUE}
+sessionInfo()
+```
+
+# Saving environment
+```{r Saving}
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".scrnaseq_results.RData"))
+```
+
+------
+<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+------
+

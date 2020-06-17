@@ -1,0 +1,1460 @@
+---
+title: "Association of CAC susceptibility loci plaque characteristics."
+author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    cache: yes
+    code_folding: hide
+    collapse: yes
+    df_print: paged
+    fig.align: center
+    fig_caption: yes
+    fig_height: 6
+    fig_retina: 2
+    fig_width: 7
+    highlight: tango
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+mainfont: Arial
+subtitle: "A 'druggable-MI-targets' project"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r global_options, include = FALSE}
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/', 
+                      wwarning = TRUE, # show warnings during codebook generation
+  message = TRUE, # show messages during codebook generation
+  error = TRUE, # do not interrupt codebook generation in case of errors,
+                # usually better for debugging
+  echo = TRUE,  # show R code
+                      eval = TRUE)
+ggplot2::theme_set(ggplot2::theme_minimal())
+pander::panderOptions("table.split.table", Inf)
+```
+
+# Setup
+We will clean the environment, setup the locations, define colors, and create a datestamp.
+
+_Clean the environment._
+```{r echo = FALSE}
+rm(list = ls())
+```
+
+_Set locations and working directories..._
+```{r LocalSystem, echo = FALSE}
+### Operating System Version
+### Mac Pro
+# ROOT_loc = "/Volumes/EliteProQx2Media"
+# GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
+# AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+# LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+# PLINK_loc=paste0(ROOT_loc,"/PLINK")
+# AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
+# PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/baseline")
+
+### MacBook
+ROOT_loc = "/Users/swvanderlaan"
+GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+PLINK_loc=paste0(ROOT_loc,"/PLINK")
+AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
+TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+
+### SOME VARIABLES WE NEED DOWN THE LINE
+TRAIT_OF_INTEREST = "CAC" # Phenotype
+PROJECTNAME = "CAC"
+
+cat("\nCreate a new analysis directory...\n")
+ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       FALSE)
+ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
+       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
+       FALSE)
+PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
+
+ifelse(!dir.exists(file.path(PLOT_loc, "/QC")), 
+       dir.create(file.path(PLOT_loc, "/QC")), 
+       FALSE)
+QC_loc = paste0(PLOT_loc,"/QC")
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       FALSE)
+OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/BASELINE")), 
+       dir.create(file.path(ANALYSIS_loc, "/BASELINE")), 
+       FALSE)
+BASELINE_loc = paste0(ANALYSIS_loc, "/BASELINE")
+
+setwd(paste0(PROJECT_loc))
+getwd()
+list.files()
+
+```
+
+_... a package-installation function ..._
+```{r Function: installations}
+install.packages.auto <- function(x) { 
+  x <- as.character(substitute(x)) 
+  if (isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else { 
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented. 
+    #update.packages(ask = FALSE) 
+    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"http://cran-mirror.cs.uu.nl/\")", x)))
+  }
+  if (isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else {
+    source("http://bioconductor.org/biocLite.R")
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented.
+    #biocLite(character(), ask = FALSE) 
+    eval(parse(text = sprintf("biocLite(\"%s\")", x)))
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  }
+}
+```
+
+_... and load those packages._
+```{r loading_packages}
+install.packages.auto("readr")
+install.packages.auto("optparse")
+install.packages.auto("tools")
+install.packages.auto("dplyr")
+install.packages.auto("tidyr")
+install.packages.auto("naniar")
+
+# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
+# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
+# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
+library(data.table)
+
+install.packages.auto("tidyverse")
+install.packages.auto("knitr")
+install.packages.auto("DT")
+install.packages.auto("eeptools")
+
+install.packages.auto("haven")
+install.packages.auto("tableone")
+
+install.packages.auto("BlandAltmanLeh")
+
+# Install the devtools package from Hadley Wickham
+install.packages.auto('devtools')
+
+# for plotting
+install.packages.auto("pheatmap")
+install.packages.auto("forestplot")
+install.packages.auto("ggplot2")
+
+install.packages.auto("ggpubr")
+
+install.packages.auto("UpSetR")
+
+devtools::install_github("thomasp85/patchwork")
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+### UtrechtScienceParkColoursScheme
+###
+### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
+### Forsomefunctionsyoushoulddividethesenumbersby255.
+###
+###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
+###---------------------------------------------------------------------------------------
+###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
+###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
+###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
+###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
+###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
+###	6	  pink			      #D5267B (213,38,123)				      =>	6		
+###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
+###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
+###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
+###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
+###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
+###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
+###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
+###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
+###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
+###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
+###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
+###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
+###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
+###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
+###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
+###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
+###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
+###	24	green			      #49A01D (73,160,29)				      =>	24/Y
+###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
+###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
+###
+###	ADDITIONAL COLORS
+###	27	midgrey			#D7D8D7
+###	28	verylightgrey	#ECECEC"
+###	29	white			#FFFFFF
+###	30	black			#000000
+###----------------------------------------------------------------------------------------------
+
+uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
+                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
+                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
+                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
+                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
+                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
+                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
+                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
+                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
+                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+### ----------------------------------------------------------------------------
+```
+
+# Introduction
+
+## Project details
+
+*Collaborators*
+
+Maryam Kavousi
+Maxime Bos
+
+*Project ID* 
+AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC
+
+
+## Background
+
+Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
+
+- IndSigSNPsforSander.xlsx
+- GeneList_15042020.xlsx
+
+```{r CAC targets}
+library(openxlsx)
+
+CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+
+CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
+
+
+DT::datatable(CAC_gene_list)
+
+DT::datatable(CAC_variants)
+
+```
+
+We will construct a list of genes to map to our scRNAseq data. 
+
+```{r CAC targets for mapping}
+
+CAC_target_genes <- unlist(CAC_gene_list$symbol)
+CAC_target_genes
+```
+
+
+
+We will test the hypothesis that CAC susceptibility loci are associated with plaque characteristics. We will use data from the Athero-Express Biobank Study.
+
+## Study design
+
+We will perform regression analyses adjusted for age, sex (where applicable) and principal components.
+
+## Modeling
+
+We will apply the following models:
+
+model 1: `phenotype ~ age + sex + chip-used + PC1 + PC2 + year-of-surgery`
+
+phenotypes are:
+
+- `calcification`, coded `Calc.bin` no/minor vs. moderate/heavy staining
+- `collagen`, coded `Collagen.bin` no/minor vs. moderate/heavy staining
+- `fat10`, coded `Fat.bin_10` no/<10% fat vs. >10% fat
+- `fat40`, coded `Fat.bin_40` no/<40% fat vs. >40% fat
+- `intraplaque hemorrhage`, coded `IPH.bin` no vs. yes
+- `macrophages (CD68)`, coded `macmean0` mean of computer-assisted calculation CD68<sup>+</sup> region of interest
+- `smooth muscle cells (alpha-actin)`, coded `smcmean0` mean of computer-assisted calculation SMA<sup>+</sup> region of interest
+- `intraplaque vessel density (CD34)`, coded `vessel_density` manually counted CD34<sup>+</sup> cells per 3-4 hotspots
+- `mast cells`, coded `Mast_cells_plaque` manually counted mast cell tryptase<sup>+</sup> cells (https://academic.oup.com/eurheartj/article/34/48/3699/484981)
+- `neutrophils (CD66b)`, coded `neutrophils` manually counted CD66b<sup>+</sup> cells (https://pubmed.ncbi.nlm.nih.gov/20595650/)
+
+
+## Athero-Express Biobank Study
+
+The *[Athero-Express Biobank Study (AE)](http://www.atheroexpress.nl){target="_blank"}* contains plaque material of patients that underwent endarterectomyat two Dutch tertiary referral centers. Details of the study design were described before. Briefly, blood and plaque material were obtained during endarterectomy and stored at -80 ℃. Only carotid endarterectomy (CEA) patients were included in the present study. All patients provided informed consent and the study was approved by the medical ethics committee.
+
+## Athero-Express Genomics Study
+
+### DNA isolation and genotyping
+
+We genotyped the AE in three separate, but consecutive experiments. In short, DNA was extracted from EDTA blood or (when no blood was available) plaque samples of 1,858 consecutive patients from the Athero-Express Biobank Study and genotyped in 3 batches. 
+
+For the _Athero-Express Genomics Study 1 (AEGS1)_ 891 patients (602 males, 262 females, 27 unknown sex), included between 2002 and 2007, were genotyped (440,763 markers) using the Affymetrix Genome-Wide Human SNP Array 5.0 (SNP5) chip (Affymetrix Inc., Santa Clara, CA, USA) at [Eurofins Genomics](https://www.eurofinsgenomics.eu/){target="_blank"} (formerly known as AROS). 
+
+For the _Athero-Express Genomics Study 2 (AEGS2)_ 954 patients (640 makes, 313 females, 1 unknown sex), included between 2002 and 2013, were genotyped (587,351 markers) using the Affymetrix AxiomⓇ GW CEU 1 Array (AxM) at the [Genome Analysis Center](https://www.helmholtz-muenchen.de/no_cache/gac/index.html){target="_blank"}.
+
+For the _Athero-Express Genomics Study 3 (AEGS3)_ 658 patients (448 males, 203 females, 5 unknown sex), included between 2002 and 2016, were genotyped (693,931 markers) using the Illumina GSA MD v1 BeadArray (GSA) at [Human Genomics Facility, HUGE-F](http://glimdna.org/index.html){target="_blank"}. 
+
+All experiments were carried out according to OECD standards. 
+
+### Genotyping calling
+
+We used the genotyping calling algorithms as advised by Affymetrix (AEGS1 and AEGS2) and Illumina (AEGS3):
+
+- AEGS1: BRLMM-P
+- AEGS2: AxiomGT1
+- AEGS3: Illumina GenomeStudio
+
+### Quality control after genotyping
+
+After genotype calling, we adhered to community standard quality control and assurance (QCA) procedures of the genotype data from AEGS1, AEGS2, and AEGS3. Samples with low average genotype calling and sex discrepancies (compared to the clinical data available) were excluded. The data was further filtered on:
+
+1) individual (sample) call rate > 97%, 
+2) SNP call rate > 97%, 
+3) minor allele frequencies (MAF) > 3%, 
+4) average heterozygosity rate ± 3.0 s.d., 
+5) relatedness (pi-hat > 0.20), 
+6) Hardy–Weinberg Equilibrium (HWE p < 1.0×10<sup>−3<\sup>), and
+7) Monomorphic SNPs (< 1.0×10<sup>−6<\sup>). 
+
+After QCA 2,493 samples remained, 108 of non-European descent/ancestry, and 156 related pairs.  These comprise 890 samples and 407,712 SNPs in AEGS1, 869 samples and 534,508 SNPs in AEGS2, and 649954 samples and 534,508 SNPs in AEGS3 remained.
+
+### Imputation
+
+Before phasing using SHAPEIT2, data was lifted to genome build b37 using the liftOver tool from UCSC (https://genome.ucsc.edu/cgi-bin/hgLiftOver). Finally, data was imputed with 1000G phase 3, version 5 and HRC release 1.1 as a reference using the [Michigan Imputation Server](https://imputationserver.sph.umich.edu/){target="_blank"}. These results were further integrated using QCTOOL v2, where HRC imputed variants are given precendence over 1000G phase 3 imputed variants. 
+
+### Quality control after imputation
+
+We compared quality of the three AEGS datasets, and listed some variables of interest.
+
+- sample type (EDTA blood or plaque)
+- genotyping chip used
+- reason for filtering
+
+We checked the studytype (AE or not), and _identity-by-descent (IBD)_ within and between datasets to aid in sample mixups, duplicate sample use, and relatedness. In addition, during genotyping quality control samples were identified that deviated from _Hardy-Weinberg Equilibrium (HWE)_, had discordance in sex-coding and genotype sex, and deviated from the _principal component analysis (PCA)_ plot.
+
+We will load the Athero-Express Biobank Study data, and all the samples that were send for genotyping and the final QC'ed sampleList.
+
+## Loading data
+
+Loading Athero-Express Biobank Study clinical and biobank data, as well as the SampleList of genetic data.
+```{r LoadAEDB}
+cat("* get Athero-Express Biobank Study Database...")
+# METHOD 1: It seems this method gives loads of errors and warnings, which all are hard to comprehend
+#           or debug. We expect 3,527 samples, and 927 variables; we get 927 variables!!!
+# AEdata = as.data.table(read.spss(paste0(INP_loc,"/2017-1NEW_AtheroExpressDatabase_ScientificAE_20171306_v1.0.sav"),
+#                                  trim.factor.names = TRUE, trim_values = TRUE, # we trim spaces in values
+#                                  reencode = TRUE, # we re-encode to the local locale encoding
+#                                  add.undeclared.levels = "append", # we do *not* want to convert to R-factors
+#                                  use.value.labels = FALSE, # we do *not* convert variables with value labels into R factors
+#                                  use.missings = TRUE, sub = "NA", # we will set every missing variable to NA
+#                                  duplicated.value.labels = "condense", # we will condense duplicated value labels
+#                                  to.data.frame = TRUE))
+# AEdata.labels <- as.data.table(attr(AEdata, "variable.labels"))
+# names(AEdata.labels) <- "Variable"
+
+# METHOD 2: Using library("haven") importing seems flawless; best argument being:
+#           we expect 3,527 samples and 888 variables, which is what you'd get with this method
+#           So for now, METHOD 2 is prefered. 
+#            
+require(haven)
+
+AEDB <- haven::read_sav(paste0(AEDB_loc, "/2019-3NEW_AtheroExpressDatabase_ScientificAE_02072019_IC_added.sav"))
+
+# writing off the SPSS data to an Excel.
+# fwrite(AEdata, file = paste0(INP_loc,"/2017-1NEW_AtheroExpressDatabase_ScientificAE_20171306_v1.0.values.xlsx"), 
+#        sep = ";", na = "NA", dec = ".", col.names = TRUE, row.names = FALSE,
+#        dateTimeAs = "ISO", showProgress = TRUE, verbose = TRUE)
+# warnings()
+
+AEDB[1:10, 1:10]
+dim(AEDB)
+
+cat("* get Athero-Express Genomics Study keys...")
+AEGS123.sampleList.keytable <- fread(paste0(AEGSQC_loc, "/QC/SELECTIONS/20200319.QC.AEGS123.sampleList.keytable.txt"))
+
+dim(AEGS123.sampleList.keytable)
+# AEGS123.sampleList.keytable[1:10, 1:10]
+
+
+```
+
+
+## Fixing and creating variables
+
+We need to be very strict in defining _symptoms._ Therefore we will fix a new variable that groups _symptoms_ at inclusion.
+
+Coding of _symptoms_ is as follows:
+
+- missing	-999	
+- Asymptomatic	0	
+- TIA	1	
+- minor stroke	2	
+- Major stroke	3	
+- Amaurosis fugax	4	
+- Four vessel disease	5	
+- Vertebrobasilary TIA	7	
+- Retinal infarction	8	
+- Symptomatic, but aspecific symtoms	9
+- Contralateral symptomatic occlusion	10	
+- retinal infarction	11	
+- armclaudication due to occlusion subclavian artery, CEA needed for bypass	12	
+- retinal infarction + TIAs	13	
+- Ocular ischemic syndrome	14	
+- ischemisch glaucoom	15	
+- subclavian steal syndrome	16	
+- TGA	17
+
+We will group as follows in `Symptoms.5G`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13
+3. Stroke > 2, 3
+4. Ocular > 4, 14, 15
+5. Retinal infarction > 8, 11
+6. Other > 5, 9, 10, 12, 16, 17
+
+We will also group as follows in `AsymptSympt`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13 + Stroke > 2, 3 
+3. Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
+
+We will also group as follows in `AsymptSympt2G`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13 + Stroke > 2, 3 Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
+
+
+```{r FixSymptoms, message=FALSE, warning=FALSE}
+# Fix symptoms
+
+attach(AEDB)
+
+AEDB$sympt[is.na(AEDB$sympt)] <- -999
+
+# Symptoms.5G
+AEDB[,"Symptoms.5G"] <- NA
+# AEDB$Symptoms.5G[sympt == "NA"] <- "Asymptomatic"
+AEDB$Symptoms.5G[sympt == -999] <- NA
+AEDB$Symptoms.5G[sympt == 0] <- "Asymptomatic"
+AEDB$Symptoms.5G[sympt == 1 | sympt == 7 | sympt == 13] <- "TIA"
+AEDB$Symptoms.5G[sympt == 2 | sympt == 3] <- "Stroke"
+AEDB$Symptoms.5G[sympt == 4 | sympt == 14 | sympt == 15 ] <- "Ocular"
+AEDB$Symptoms.5G[sympt == 8 | sympt == 11] <- "Retinal infarction"
+AEDB$Symptoms.5G[sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Other"
+
+# AsymptSympt
+AEDB[,"AsymptSympt"] <- NA
+AEDB$AsymptSympt[sympt == -999] <- NA
+AEDB$AsymptSympt[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3] <- "Symptomatic"
+AEDB$AsymptSympt[sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Ocular and others"
+
+# AsymptSympt
+AEDB[,"AsymptSympt2G"] <- NA
+AEDB$AsymptSympt2G[sympt == -999] <- NA
+AEDB$AsymptSympt2G[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt2G[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3 | sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Symptomatic"
+
+detach(AEDB)
+
+# table(AEDB$sympt, useNA = "ifany")
+# table(AEDB$AsymptSympt2G, useNA = "ifany")
+# table(AEDB$Symptoms.5G, useNA = "ifany")
+# 
+# table(AEDB$AsymptSympt2G, AEDB$sympt, useNA = "ifany")
+# table(AEDB$Symptoms.5G, AEDB$sympt, useNA = "ifany")
+table(AEDB$AsymptSympt2G, AEDB$Symptoms.5G, useNA = "ifany")
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "sympt", "Symptoms.5G", "AsymptSympt"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# table(AEDB.temp$Symptoms.5G, AEDB.temp$AsymptSympt)
+# 
+# rm(AEDB.temp)
+
+```
+
+We will also fix the _plaquephenotypes_ variable.  
+
+Coding of symptoms is as follows:
+
+- missing	-999	
+- not relevant -888
+- fibrous	1	
+- fibroatheromatous	2	
+- atheromatous	3	
+
+
+```{r FixPlaquePhenotypes, message=FALSE, warning=FALSE}
+
+# Fix plaquephenotypes
+attach(AEDB)
+AEDB[,"OverallPlaquePhenotype"] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == 1] <- "fibrous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 2] <- "fibroatheromatous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 3] <- "atheromatous"
+detach(AEDB)
+
+table(AEDB$OverallPlaquePhenotype)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "plaquephenotype", "OverallPlaquePhenotype"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+We will also fix the _diabetes_ status variable. We define diabetes as history of a diagnosis and/or use of glucose-lowering medications.
+
+```{r FixDiabetes, message=FALSE, warning=FALSE}
+# Fix diabetes
+attach(AEDB)
+AEDB[,"DiabetesStatus"] <- NA
+AEDB$DiabetesStatus[DM.composite == -999] <- NA
+AEDB$DiabetesStatus[DM.composite == 0] <- "Control (no Diabetes Dx/Med)"
+AEDB$DiabetesStatus[DM.composite == 1] <- "Diabetes"
+detach(AEDB)
+
+table(AEDB$DM.composite)
+
+table(AEDB$DiabetesStatus)
+
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+
+We will also fix the _smoking_ status variable. We are interested in whether someone never, ever or is currently (at the time of inclusion) smoking. This is based on the questionnaire. 
+
+- `diet801`: are you a smoker?
+- `diet802`: did you smoke in the past?
+
+We already have some variables indicating smoking status:
+
+- `SmokingReported`: patient has reported to smoke.
+- `SmokingYearOR`: smoking in the year of surgery?
+- `SmokerCurrent`: currently smoking?
+
+
+
+```{r FixSmoking, message=FALSE, warning=FALSE}
+require(labelled)
+AEDB$diet801 <- to_factor(AEDB$diet801)
+AEDB$diet802 <- to_factor(AEDB$diet802)
+AEDB$diet805 <- to_factor(AEDB$diet805)
+AEDB$SmokingReported <- to_factor(AEDB$SmokingReported)
+AEDB$SmokerCurrent <- to_factor(AEDB$SmokerCurrent)
+AEDB$SmokingYearOR <- to_factor(AEDB$SmokingYearOR)
+
+# table(AEDB$diet801)
+# table(AEDB$diet802)
+# table(AEDB$SmokingReported)
+# table(AEDB$SmokerCurrent)
+# table(AEDB$SmokingYearOR)
+# table(AEDB$SmokingReported, AEDB$SmokerCurrent, useNA = "ifany", dnn = c("Reported smoking", "Current smoker"))
+# 
+# table(AEDB$diet801, AEDB$diet802, useNA = "ifany", dnn = c("Smoker", "Past smoker"))
+
+cat("\nFixing smoking status.\n")
+attach(AEDB)
+AEDB[,"SmokerStatus"] <- NA
+AEDB$SmokerStatus[diet802 == "don't know"] <- "Never smoked"
+AEDB$SmokerStatus[diet802 == "I still smoke"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "no"] <- "Never smoked"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "yes"] <- "Ex-smoker"
+AEDB$SmokerStatus[SmokerCurrent == "yes"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no data available/missing"] <- NA
+# AEDB$SmokerStatus[is.na(SmokerCurrent)] <- "Never smoked"
+detach(AEDB)
+
+cat("\n* Current smoking status.\n")
+table(AEDB$SmokerCurrent,
+      useNA = "ifany", 
+      dnn = c("Current smoker"))
+
+cat("\n* Updated smoking status.\n")
+table(AEDB$SmokerStatus,
+      useNA = "ifany", 
+      dnn = c("Updated smoking status"))
+
+cat("\n* Comparing to 'SmokerCurrent'.\n")
+table(AEDB$SmokerStatus, AEDB$SmokerCurrent, 
+      useNA = "ifany", 
+      dnn = c("Updated smoking status", "Current smoker"))
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+We will also fix the _alcohol_ status variable.
+
+
+```{r FixAlcohol, message=FALSE, warning=FALSE}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"AlcoholUse"] <- NA
+AEDB$AlcoholUse[diet810 == -999] <- NA
+AEDB$AlcoholUse[diet810 == 0] <- "No"
+AEDB$AlcoholUse[diet810 == 1] <- "Yes"
+detach(AEDB)
+
+table(AEDB$AlcoholUse)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+We will also fix a history of CAD, stroke or peripheral intervention status variable. This will be based on `CAD_history`, `Stroke_history`, and `Peripheral.interv`
+
+```{r FixCAD_History, message=FALSE, warning=FALSE}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"MedHx_CVD"] <- NA
+AEDB$MedHx_CVD[CAD_history == 0 | Stroke_history == 0 | Peripheral.interv == 0] <- "No"
+AEDB$MedHx_CVD[CAD_history == 1 | Stroke_history == 1 | Peripheral.interv == 1] <- "yes"
+detach(AEDB)
+
+table(AEDB$CAD_history)
+table(AEDB$Stroke_history)
+table(AEDB$Peripheral.interv)
+table(AEDB$MedHx_CVD)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+
+# Athero-Express Biobank Study
+
+## Baseline characteristics
+
+We are interested in the following variables at baseline.
+
+- Age (years)
+- Female sex (N, %)
+- Hypertension (N, %)
+- SBP (mmHg)
+- DBP (mmHg)
+- Diabetes mellitus (N, %)
+- Total cholesterol levels (mg/dL)
+- LDL cholesterol levels (mg/dL)
+- HDL cholesterol levels (mg/dL)
+- Triglyceride levels (mg/dL)
+- Use of statins (N, %)
+- Use of antiplatelet drugs (N, %)
+- BMI (kg/m²)
+- Smoking status (N, %)
+  - Never smokers
+  - Ex-smokers
+  - Current smokers
+- History of CAD (N, %)
+- History of PAD (N, %)
+- Clinical manifestations
+  - Asymptomatic
+  - Amaurosis fugax
+  - TIA
+  - Stroke
+- eGFR (mL/min/1.73 m²)
+
+
+```{r Baseline AEDB: creation, include = FALSE}
+cat("====================================================================================================\n")
+cat("SELECTION THE SHIZZLE\n")
+
+### Artery levels
+# AEdata$Artery_summary: 
+#           value                                                                                   label
+# NOT USE - 0 No artery known (yet), no surgery (patient ill, died, exited study), re-numbered to AAA
+# USE - 1                                                                  carotid (left & right)
+# USE - 2                                               femoral/iliac (left, right or both sides)
+# NOT USE - 3                                               other carotid arteries (common, external)
+# NOT USE - 4                                   carotid bypass and injury (left, right or both sides)
+# NOT USE - 5                                                         aneurysmata (carotid & femoral)
+# NOT USE - 6                                                                                   aorta
+# NOT USE - 7                                            other arteries (renal, popliteal, vertebral)
+# NOT USE - 8                        femoral bypass, angioseal and injury (left, right or both sides)
+
+### AEdata$informedconsent
+#           value                                                                                           label
+# NOT USE - -999                                                                                         missing
+# NOT USE - 0                                                                                        no, died
+# USE - 1                                                                                             yes
+# USE - 2                                                             yes, health treatment when possible
+# USE - 3                                                                        yes, no health treatment
+# USE - 4                                                yes, no health treatment, no commercial business
+# NOT USE - 5                                                          yes, no tissue, no commerical business
+# NOT USE - 6                      yes, no tissue, no questionnaires, no medical info, no commercial business
+# USE - 7                             yes, no questionnaires, no health treatment, no commercial business
+# USE - 8                                          yes, no questionnaires, health treatment when possible
+# NOT USE - 9                  yes, no tissue, no questionnaires, no health treatment, no commerical business
+# USE - 10                               yes, no health treatment, no medical info, no commercial business
+# NOT USE - 11 yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business
+# USE - 12                                                     yes, no questionnaires, no health treatment
+# NOT USE - 13                                                             yes, no tissue, no health treatment
+# NOT USE - 14                                                               yes, no tissue, no questionnaires
+# NOT USE - 15                                                  yes, no tissue, health treatment when possible
+# NOT USE - 16                                                                                  yes, no tissue
+# USE - 17                                                                     yes, no commerical business
+# USE - 18                                     yes, health treatment when possible, no commercial business
+# USE - 19                                                    yes, no medical info, no commercial business
+# USE - 20                                                                          yes, no questionnaires
+# NOT USE - 21                         yes, no tissue, no questionnaires, no health treatment, no medical info
+# NOT USE - 22                  yes, no tissue, no questionnaires, no health treatment, no commercial business
+# USE - 23                                                                            yes, no medical info
+# USE - 24                                                  yes, no questionnaires, no commercial business
+# USE - 25                                    yes, no questionnaires, no health treatment, no medical info
+# USE - 26                  yes, no questionnaires, health treatment when possible, no commercial business
+# USE - 27                                                      yes,  no health treatment, no medical info
+# NOT USE - 28                                                                             no, doesn't want to
+# NOT USE - 29                                                                              no, unable to sign
+# NOT USE - 30                                                                                 no, no reaction
+# NOT USE - 31                                                                                        no, lost
+# NOT USE - 32                                                                                     no, too old
+# NOT USE - 34                                            yes, no medical info, health treatment when possible
+# NOT USE - 35                                             no (never asked for IC because there was no tissue)
+# USE - 36                    yes, no medical info, no commercial business, health treatment when possible
+# NOT USE - 37                                                                                    no, endpoint
+# USE - 38                                                         wil niets invullen, wel alles gebruiken
+# USE - 39                                           second informed concents: yes, no commercial business
+# NOT USE - 40                                                                              nooit geincludeerd
+
+cat("- sanity checking PRIOR to selection")
+library(data.table)
+ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
+ae.hospital <- ifelse(AEDB$Hospital == 1, "Antonius", "UMCU")
+table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"))
+ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
+table(ae.gender, AEDB$Artery_summary, dnn = c("Sex", "Artery"))
+# table(ae.gender, AEDB$informedconsent, dnn = c("Sex", "IC"))
+
+rm(ae.gender, ae.hospital)
+
+# I change numeric and factors manually because, well, I wouldn't know how to fix it otherwise
+# to have this 'tibble' work with 'tableone'... :-)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$diastoli <- as.numeric(AEDB$diastoli)
+AEDB$systolic <- as.numeric(AEDB$systolic)
+
+AEDB$TC_finalCU <- as.numeric(AEDB$TC_finalCU)
+AEDB$LDL_finalCU <- as.numeric(AEDB$LDL_finalCU)
+AEDB$HDL_finalCU <- as.numeric(AEDB$HDL_finalCU)
+AEDB$TG_finalCU <- as.numeric(AEDB$TG_finalCU)
+
+AEDB$TC_final <- as.numeric(AEDB$TC_final)
+AEDB$LDL_final <- as.numeric(AEDB$LDL_final)
+AEDB$HDL_final <- as.numeric(AEDB$HDL_final)
+AEDB$TG_final <- as.numeric(AEDB$TG_final)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$GFR_MDRD <- as.numeric(AEDB$GFR_MDRD)
+AEDB$BMI <- as.numeric(AEDB$BMI)
+AEDB$eCigarettes <- as.numeric(AEDB$eCigarettes)
+AEDB$ePackYearsSmoking <- as.numeric(AEDB$ePackYearsSmoking)
+AEDB$EP_composite_time <- as.numeric(AEDB$EP_composite_time)
+
+AEDB$macmean0 <- as.numeric(AEDB$macmean0)
+AEDB$smcmean0 <- as.numeric(AEDB$smcmean0)
+AEDB$neutrophils <- as.numeric(AEDB$neutrophils)
+AEDB$Mast_cells_plaque <- as.numeric(AEDB$Mast_cells_plaque)
+AEDB$vessel_density_averaged <- as.numeric(AEDB$vessel_density_averaged)
+
+AEDB$MAC_rankNorm <- qnorm((rank(AEDB$macmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$macmean0)))
+AEDB$SMC_rankNorm <- qnorm((rank(AEDB$smcmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$smcmean0)))
+AEDB$Neutrophils_rankNorm <- qnorm((rank(AEDB$neutrophils, na.last = "keep") - 0.5) / sum(!is.na(AEDB$neutrophils)))
+AEDB$MastCells_rankNorm <- qnorm((rank(AEDB$Mast_cells_plaque, na.last = "keep") - 0.5) / sum(!is.na(AEDB$Mast_cells_plaque)))
+AEDB$VesselDensity_rankNorm <- qnorm((rank(AEDB$vessel_density_averaged, na.last = "keep") - 0.5) / sum(!is.na(AEDB$vessel_density_averaged)))
+
+
+require(labelled)
+AEDB$ORyear <- to_factor(AEDB$ORyear)
+AEDB$Gender <- to_factor(AEDB$Gender)
+AEDB$Hospital <- to_factor(AEDB$Hospital)
+AEDB$KDOQI <- to_factor(AEDB$KDOQI)
+AEDB$BMI_WHO <- to_factor(AEDB$BMI_WHO)
+AEDB$DiabetesStatus <- to_factor(AEDB$DiabetesStatus)
+AEDB$SmokerStatus <- to_factor(AEDB$SmokerStatus)
+AEDB$AlcoholUse <- to_factor(AEDB$AlcoholUse)
+
+AEDB$Hypertension.selfreport <- to_factor(AEDB$Hypertension1)
+AEDB$Hypertension.selfreportdrug <- to_factor(AEDB$Hypertension2)
+AEDB$Hypertension.composite <- to_factor(AEDB$Hypertension.composite)
+AEDB$Hypertension.drugs <- to_factor(AEDB$Hypertension.drugs)
+
+AEDB$Med.anticoagulants <- to_factor(AEDB$Med.anticoagulants)
+AEDB$Med.all.antiplatelet <- to_factor(AEDB$Med.all.antiplatelet)
+AEDB$Med.Statin.LLD <- to_factor(AEDB$Med.Statin.LLD)
+
+AEDB$Stroke_Dx <- to_factor(AEDB$Stroke_Dx)
+AEDB$CAD_history <- to_factor(AEDB$CAD_history)
+AEDB$PAOD <- to_factor(AEDB$PAOD)
+AEDB$Peripheral.interv <- to_factor(AEDB$Peripheral.interv)
+AEDB$MedHx_CVD <- to_factor(AEDB$MedHx_CVD)
+
+
+AEDB$sympt <- to_factor(AEDB$sympt)
+AEDB$Symptoms.3g <- to_factor(AEDB$Symptoms.3g)
+AEDB$Symptoms.4g <- to_factor(AEDB$Symptoms.4g)
+AEDB$Symptoms.5G <- to_factor(AEDB$Symptoms.5G)
+AEDB$AsymptSympt <- to_factor(AEDB$AsymptSympt)
+AEDB$AsymptSympt2G <- to_factor(AEDB$AsymptSympt2G)
+
+
+AEDB$restenos <- to_factor(AEDB$restenos)
+AEDB$stenose <- to_factor(AEDB$stenose)
+AEDB$EP_composite <- to_factor(AEDB$EP_composite)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+AEDB$OverallPlaquePhenotype <- to_factor(AEDB$OverallPlaquePhenotype)
+
+AEDB$Artery_summary <- to_factor(AEDB$Artery_summary)
+
+AEDB$informedconsent <- to_factor(AEDB$informedconsent)
+
+AEDB.CEA <- subset(AEDB,
+                    (Artery_summary == "carotid (left & right)" | Artery_summary == "other carotid arteries (common, external)") & # we only want carotids
+                       informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+# AEDB.CEA[1:10, 1:10]
+dim(AEDB.CEA)
+
+AEDB.full <- subset(AEDB,
+                    informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+# AEDB.CEA[1:10, 1:10]
+dim(AEDB.full)
+
+```
+
+```{r}
+cat("===========================================================================================\n")
+cat("CREATE BASELINE TABLE\n")
+
+# Baseline table variables
+basetable_vars = c("Hospital", "ORyear",
+                   "Age", "Gender", 
+                   "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
+                   "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   "systolic", "diastoli", "GFR_MDRD", "BMI", 
+                   "KDOQI", "BMI_WHO",
+                   "SmokerStatus", "AlcoholUse",
+                   "DiabetesStatus", 
+                   "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                   "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                   "restenos", "stenose",
+                   "MedHx_CVD", "CAD_history", "PAOD", "Peripheral.interv", 
+                   "EP_composite", "EP_composite_time",
+                   "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin",
+                   "neutrophils", "Mast_cells_plaque",
+                   "IPH.bin", "vessel_density_averaged",
+                   "Calc.bin", "Collagen.bin", 
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype",
+                   "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")
+
+basetable_bin = c("Gender", 
+                  "KDOQI", "BMI_WHO",
+                  "SmokerStatus", "AlcoholUse",
+                  "DiabetesStatus", 
+                  "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                  "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                  "restenos", "stenose",
+                  "CAD_history", "PAOD", "Peripheral.interv", 
+                  "EP_composite", "Macrophages.bin", "SMC.bin",
+                  "IPH.bin", 
+                  "Calc.bin", "Collagen.bin", 
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype")
+# basetable_bin
+
+basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
+# basetable_con
+```
+
+Showing the baseline table of the whole Athero-Express Biobank.
+
+```{r Baseline AEDB: Visualize AEDB}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEDB.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         # strata = "Symptoms.4g",
+                                         data = AEDB.full, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:3]
+```
+
+
+```{r Baseline AEDB: Visualize AEDB CEA}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         # strata = "Symptoms.4g",
+                                         data = AEDB.CEA, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:3]
+```
+
+
+## Athero-Express Genomics Study: prepare
+
+Let's combine the full Athero-Express Biobank Study with the key-table containing the AEGS data.
+
+> NOTE: this should sum to 2,124 samples with genotypes.
+
+```{r create AEGS}
+AEGS <- merge(AEDB.full, AEGS123.sampleList.keytable, by.x = "STUDY_NUMBER", by.y = "STUDY_NUMBER", sort = FALSE,
+                  all = TRUE)
+
+dim(AEGS)
+
+AEGS$UPID.y <- NULL
+names(AEGS)[names(AEGS) == "UPID.x"] <- "UPID"
+AEGS$Age.y <- NULL
+names(AEGS)[names(AEGS) == "Age.x"] <- "Age"
+
+table(AEGS$CHIP, useNA = "ifany")
+
+AEGS$GWAS <- AEGS$CHIP
+AEGS$GWAS[is.na(AEGS$GWAS)] <- "not genotyped"
+AEGS$GWAS[AEGS$GWAS != "not genotyped"] <- "genotyped"
+
+table(AEGS$CHIP, AEGS$GWAS, useNA = "ifany")
+```
+
+Also a visualisation of the AEGS with AEDB overlaps.
+```{r visualise AEGS overlaps}
+library(UpSetR)
+require(ggplot2)
+require(plyr)
+require(gridExtra)
+require(grid)
+
+AEDB.availGWAS = list(
+AEGS1 = subset(AEGS, CHIP == "AffySNP5", select = c("STUDY_NUMBER"))[,1],
+AEGS2 = subset(AEGS, CHIP == "AffyAxiomCEU", select = c("STUDY_NUMBER"))[,1],
+AEGS3 = subset(AEGS, CHIP == "IllGSA", select = c("STUDY_NUMBER"))[,1],
+AEDB = AEGS$STUDY_NUMBER)
+
+p1 <- UpSetR::upset(fromList(AEDB.availGWAS), 
+                    sets = c("AEDB", "AEGS1", "AEGS2", "AEGS3"), 
+                    main.bar.color = c(uithof_color[15], uithof_color[2], uithof_color[3], uithof_color[21]), 
+                    mainbar.y.label	= "intersection sample size", 
+                    sets.bar.color = c(uithof_color[15], uithof_color[2], uithof_color[3], uithof_color[21]), 
+                    sets.x.label = "sample size", keep.order = TRUE)
+pdf(paste0(PLOT_loc, "/", Today, ".overlap.AEDB_AEGS123.UpSetR.pdf"))
+  p1
+dev.off()
+p1
+rm(p1)
+```
+
+
+```{r SpecificSelection}
+table(AEGS$Artery_summary, AEGS$QC2018_FILTER)
+table(AEGS$informedconsent, AEGS$QC2018_FILTER)
+AEGSselect <- subset(AEGS, 
+                     informedconsent != "missing" &
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+
+AEGSselect.CEA <- subset(AEGS, !is.na(QC2018_FILTER) & QC2018_FILTER != "issue" & QC2018_FILTER != "family_discard" &
+                     (Artery_summary == "carotid (left & right)" | Artery_summary == "other carotid arteries (common, external)") & # we only want carotids
+                     informedconsent != "missing" &
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+
+dim(AEGSselect)
+
+table(AEGSselect$Artery_summary, AEGSselect$QC2018_FILTER)
+table(AEGSselect$Artery_summary, AEGSselect$CHIP)
+table(AEGSselect$QC2018_FILTER, AEGSselect$CHIP)
+table(AEGSselect$QC2018_FILTER, AEGSselect$SAMPLE_TYPE)
+
+AEDB.temp <- subset(AEGSselect,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "QC2018_FILTER", "CHIP", "SAMPLE_TYPE"))
+require(labelled)
+AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+AEDB.temp$QC2018_FILTER <- to_factor(AEDB.temp$QC2018_FILTER)
+AEDB.temp$CHIP <- to_factor(AEDB.temp$CHIP)
+AEDB.temp$SAMPLE_TYPE <- to_factor(AEDB.temp$SAMPLE_TYPE)
+
+DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+
+rm(AEDB.temp)
+
+
+```
+
+## Athero-Express Genomics Study: baseline characteristics
+
+Showing the baseline table of the Athero-Express Genomics Study.
+
+```{r Baseline SampleSelect: prepare}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEGSselect$GWAS <- to_factor(AEGSselect$GWAS)
+AEGSselect$CHIP <- to_factor(AEGSselect$CHIP)
+AEGSselect$PCA <- to_factor(AEGSselect$PCA)
+AEGSselect$SAMPLE_TYPE <- to_factor(AEGSselect$SAMPLE_TYPE)
+AEGSselect$informedconsent <- to_factor(AEGSselect$informedconsent)
+
+AEGSselect.CEA$GWAS <- to_factor(AEGSselect.CEA$GWAS)
+AEGSselect.CEA$CHIP <- to_factor(AEGSselect.CEA$CHIP)
+AEGSselect.CEA$PCA <- to_factor(AEGSselect.CEA$PCA)
+AEGSselect.CEA$SAMPLE_TYPE <- to_factor(AEGSselect.CEA$SAMPLE_TYPE)
+AEGSselect.CEA$informedconsent <- to_factor(AEGSselect.CEA$informedconsent)
+
+
+cat("===========================================================================================\n")
+cat("CREATE BASELINE TABLE\n")
+
+# Baseline table variables
+basetable_vars = c("Hospital", 
+                   "Age", "Gender", 
+                   "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   "systolic", "diastoli", "GFR_MDRD", "BMI", 
+                   "KDOQI", "BMI_WHO", 
+                   "SmokerCurrent", "eCigarettes", "ePackYearsSmoking",
+                   "DiabetesStatus", "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", 
+                   "Hypertension.drugs", "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "restenos",
+                   "EP_composite", "EP_composite_time",
+                   "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin", "neutrophils", "Mast_cells_plaque", "vessel_density_averaged",
+                   "IPH.bin", 
+                   "Calc.bin", "Collagen.bin", 
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", 
+                   "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
+                  "GWAS", "CHIP", "PCA")
+
+basetable_bin = c("Gender", 
+                  "KDOQI", "BMI_WHO", 
+                  "SmokerCurrent", 
+                  "DiabetesStatus", "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", 
+                  "Hypertension.drugs", "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "restenos",
+                  "EP_composite", "Macrophages.bin", "SMC.bin",
+                  "IPH.bin", 
+                  "Calc.bin", "Collagen.bin", 
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype",
+                  "GWAS", "CHIP", "PCA")
+
+basetable_bin
+
+basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
+basetable_con
+
+```
+
+All Athero-Express Genomics Study data (n = 2,011), compared to the _remaining_, _un_genotyped Athero-Express Biobank Study.
+```{r Baseline SampleSelect: Visualize, whole}
+cat("\n===========================================================================================\n")
+cat("DISPLAY BASELINE TABLE\n")
+
+AEGSselect.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         strata = "GWAS",
+                                         data = AEGSselect, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:6]
+```
+
+Baseline of the valid, CEA and genotyped data.
+```{r Baseline SampleSelect: Visualize, CEA}
+AEGSselect.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         strata = "Gender",
+                                         data = AEGSselect.CEA, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:6]
+```
+
+## Athero-Express Genomics Study: writing
+
+Let's save the baseline characteristics of the Athero-Express Genomics Study.
+
+```{r Baseline SampleSelection: write}
+# Write basetable
+require(openxlsx)
+
+write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.BaselineTable.xlsx"), 
+           AEGSselect.tableOne, 
+           row.names = TRUE, 
+           col.names = TRUE, 
+           sheetName = "AEGS_Baseline")
+
+write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.CEA.BaselineTable.xlsx"), 
+           AEGSselect.CEA.tableOne, 
+           row.names = TRUE, 
+           col.names = TRUE, 
+           sheetName = "AEGS_Baseline_full")
+```
+
+# SampleLists
+
+## Autosomal data.
+
+We are ready to make a sampleList for use with the imputed data.
+
+```{r Save SampleSelect}
+require(openxlsx)
+
+temp <- subset(AEGS,
+               GWAS == "genotyped",
+               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", # ID_2 is the order of samples!
+                          "QC2018_FINAL", "QC2018_FILTER", "OriginalOrder_postMichImp_QC",
+                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE", "PCA",
+                          "PC1", "PC2", "PC3", "PC4", "PC5",
+                          "PC6", "PC7", "PC8", "PC9", "PC10",
+                          "Sex", "Age", "ORyear", 
+                          "Calc.bin", "Collagen.bin", 
+                          "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")) # Select some phenotype of interest
+dim(temp)
+
+# Fix things
+attach(temp)
+
+temp[,"Calcification"] <- NA
+temp$Calcification[Calc.bin == "no/minor"] <- "control"
+temp$Calcification[Calc.bin == "moderate/heavy"] <- "case"
+
+temp[,"Collagen"] <- NA
+temp$Collagen[Collagen.bin == "no/minor"] <- "control"
+temp$Collagen[Collagen.bin == "moderate/heavy"] <- "case"
+
+temp[,"Fat10"] <- NA
+temp$Fat10[Fat.bin_10 == "<10%"] <- "control"
+temp$Fat10[Fat.bin_10 == ">10%"] <- "case"
+
+temp[,"Fat40"] <- NA
+temp$Fat40[Fat.bin_40 == "<40%"] <- "control"
+temp$Fat40[Fat.bin_40 == ">40%"] <- "case"
+
+temp[,"IPH"] <- NA
+temp$IPH[IPH.bin == "no"] <- "control"
+temp$IPH[IPH.bin == "yes"] <- "case"
+
+detach(temp)
+
+# Making selection variable
+attach(temp)
+temp[,"SELECTION"] <- "not_selected"
+temp$SELECTION[(QC2018_FILTER=="passed" | QC2018_FILTER=="family_keep") & (STUDY_TYPE=="CEA" & PCA=="EUR")] <- "selected"
+detach(temp)
+table(temp$SELECTION, temp$QC2018_FILTER)
+table(temp$SELECTION, temp$STUDY_TYPE)
+table(temp$SELECTION, temp$PCA)
+
+AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
+
+AEGS123_sample.list$missing <- 0
+
+sample_file_aegs <- dplyr::select(AEGS123_sample.list,
+                                  ID_1, ID_2, missing, # ID_2 is the order of samples - that way we always know what the order should be
+                                  UPID, STUDY_NUMBER, 
+                                  QC2018_FINAL, QC2018_FILTER, SELECTION,
+                                  AEGS_type, CHIP, STUDY_TYPE, SAMPLE_TYPE, PCA,
+                                  PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10,
+                                  Sex, Age, ORyear, 
+                                  Calcification, Collagen, 
+                                  Fat10, Fat40, IPH, 
+                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm)  %>%
+  mutate_if(is.numeric, as.character) %>%
+  mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
+  add_row(.before = 1, 
+          ID_1 = "0", ID_2 = "0", missing = "0", 
+          UPID = "D", STUDY_NUMBER = "C",
+          QC2018_FINAL = "D", QC2018_FILTER = "D", SELECTION = "D",
+          AEGS_type = "D", CHIP = "D", STUDY_TYPE = "D", SAMPLE_TYPE = "D", PCA = "D",
+          PC1 = "C", PC2 = "C", PC3 = "C", PC4 = "C", PC5 = "C", PC6 = "C", PC7 = "C", PC8 = "C", PC9 = "C", PC10 = "C",
+          Sex = "D", Age = "C", ORyear = "C", 
+          Calcification = "B", Collagen = "B", 
+          Fat10 = "B", Fat40 = "B", IPH = "B", 
+          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
+  print()
+dim(sample_file_aegs)
+
+fwrite(sample_file_aegs,
+       file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEGS123.sample"),
+       na = "NA", sep = "\t", quote = FALSE,
+       row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE, verbose = TRUE)
+
+require(DT)
+DT::datatable(sample_file_aegs, caption = "AEGS: final sample list of genotyped AE patients after quality control.", rownames = FALSE)
+
+rm(temp, temp2, temp3)
+```
+
+## X-chromosome data
+
+The X-chromosome data is taken from previously imputed data based on 1000G phase 3 (version 5) and GoNL5. For some reason, imputing on the Michigan Imputation Server was not successful (*ACTION point*).
+
+Here we load in the sample files for the three datasets of the X chromosomal data. We should:
+
+- filter out samples that did not pass quality control, ending up with 2,124 sample
+- re-order the data to fit the other autosomal data.
+
+
+```{r SampleList X}
+
+AEGS123_chrX <- fread(paste0(MICHIMP_loc, "/_chr23_1kg_gonl5/aegs.raw.1kg_gonl5.chr23.mappings.txt"))
+names(AEGS123_chrX)[names(AEGS123_chrX) == "ID_1"] <- "SampleID_postImpChrX"
+
+AEGS123_AllChr <- merge(AEGS123_chrX, sample_file_aegs, by.x = "SampleID_postMichImp", by.y = "ID_1", 
+                        all.x = TRUE, 
+                        sort = FALSE)
+
+names(AEGS123_AllChr)[names(AEGS123_AllChr) == "ID_2.y"] <- "ID_2"
+names(AEGS123_AllChr)[names(AEGS123_AllChr) == "STUDY_TYPE.y"] <- "STUDY_TYPE"
+names(AEGS123_AllChr)[names(AEGS123_AllChr) == "SampleID_postMichImp"] <- "ID_1"
+AEGS123_AllChr$missing.x <- NULL
+AEGS123_AllChr$missing.y <- NULL
+AEGS123_AllChr$STUDY_TYPE.x <- NULL
+AEGS123_AllChr$ID_2.x <- NULL
+
+dim(AEGS123_AllChr)
+str(AEGS123_AllChr)
+```
+
+This seems fine, let's filter; we can use this file to filter the genetic data. And we create another file to re-order the data.
+
+```{r SampleList X: filter}
+
+AEGS123_AllChrQC <- subset(AEGS123_AllChr,
+               !is.na(QC2018_FILTER),
+               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX",
+                          "QC2018_FINAL", "QC2018_FILTER", "SELECTION",
+                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE",
+                          "PC1", "PC2", "PC3", "PC4", "PC5",
+                          "PC6", "PC7", "PC8", "PC9", "PC10",
+                          "Sex", "Age", "ORyear", 
+                          "Calcification", "Collagen", 
+                          "Fat10", "Fat40", "IPH", 
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm"))
+
+AEGS123_AllChrQC_reorder <-AEGS123_AllChrQC[order(AEGS123_AllChrQC$ID_2),] # remember: ID_2 is the order of samples
+
+AEGS123_AllChrQC_filtered <- subset(AEGS123_AllChr,
+               is.na(QC2018_FILTER),
+               select = c("ID_1", "ID_2", "UPID", "STUDY_NUMBER", "SampleID_postImpChrX",
+                          "QC2018_FINAL", "QC2018_FILTER", "SELECTION",
+                          "AEGS_type", "CHIP", "STUDY_TYPE", "SAMPLE_TYPE",
+                          "PC1", "PC2", "PC3", "PC4", "PC5",
+                          "PC6", "PC7", "PC8", "PC9", "PC10",
+                          "Sex", "Age", "ORyear", 
+                          "Calcification", "Collagen", 
+                          "Fat10", "Fat40", "IPH", 
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm"))
+
+fwrite(AEGS123_AllChrQC_reorder,
+       file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"),
+       na = "NA", sep = "\t", quote = FALSE,
+       row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE, verbose = TRUE)
+
+require(DT)
+DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped AE patients after quality control (chromosome X).", rownames = FALSE)
+
+
+```
+
+# Session information
+
+------
+
+    Version:      v1.0.0
+    Last update:  2020-06-17
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
+    Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
+    
+    Changes log
+    * v1.0.0 Initial version. Fixed baseline table, added codes, and results. Created sample-files.
+
+
+
+------
+
+```{r eval = TRUE}
+sessionInfo()
+```
+
+------
+<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+------
+
+  
+  
+  
+
+
