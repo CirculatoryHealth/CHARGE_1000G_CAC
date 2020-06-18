@@ -239,6 +239,7 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 *Collaborators*
 
 Maryam Kavousi
+Patricia Peyser
 Maxime Bos
 
 *Project ID* 
@@ -1277,7 +1278,8 @@ temp <- subset(AEGS,
                           "Sex", "Age", "ORyear", 
                           "Calc.bin", "Collagen.bin", 
                           "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")) # Select some phenotype of interest
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", 
+                          "OverallPlaquePhenotype")) # Select some phenotype of interest
 dim(temp)
 
 # Fix things
@@ -1327,7 +1329,8 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
                                   Sex, Age, ORyear, 
                                   Calcification, Collagen, 
                                   Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm)  %>%
+                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
+                                  OverallPlaquePhenotype)  %>%
   mutate_if(is.numeric, as.character) %>%
   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
   add_row(.before = 1, 
@@ -1339,7 +1342,8 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
           Sex = "D", Age = "C", ORyear = "C", 
           Calcification = "B", Collagen = "B", 
           Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
+          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
+          OverallPlaquePhenotype = "B") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
   print()
 dim(sample_file_aegs)
 
@@ -1432,13 +1436,14 @@ DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped 
 
 ------
 
-    Version:      v1.0.0
-    Last update:  2020-06-17
+    Version:      v1.0.1
+    Last update:  2020-06-18
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.1 Add an additional phenotype.
     * v1.0.0 Initial version. Fixed baseline table, added codes, and results. Created sample-files.
 
 
