@@ -9,7 +9,6 @@ Collaboration for mapping targets from the CHARGE Consortium 1000G GWAS on _coro
 ## Athero-Express Biobank Study
 We have bulk RNAseq (n = 635 samples) and single-cell RNAseq data, genome-wide methylation (Illumina 450K) in n ± 600, as well as overlapping genetic data for ±2,100 individuals with extensive histological plaque characterisation. We will address the following questions:
 
-
 - Gene expression correlated to characteristics of plaques?
 - Where target genes expressed, which cell types? 
 - Are any of the variants associated to plaque characteristics?
