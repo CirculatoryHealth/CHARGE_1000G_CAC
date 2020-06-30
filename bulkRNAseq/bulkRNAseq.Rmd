@@ -1,0 +1,1526 @@
+---
+title: "Mapping CAC susceptibility loci to bulk RNAseq in carotid plaques."
+author: '[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan'
+date: '`r Sys.Date()`'
+output:
+  html_notebook: 
+    cache: yes
+    code_folding: hide
+    collapse: yes
+    df_print: paged
+    fig.align: center
+    fig_caption: yes
+    fig_height: 10
+    fig_retina: 2
+    fig_width: 12
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+mainfont: Helvetica
+subtitle: A 'druggable-MI-targets' project
+editor_options:
+  chunk_output_type: inline
+---
+```{r global_options, include=FALSE}
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'FIGURES/', dev = 'png',
+                      eval = TRUE, warning = FALSE, message = FALSE)
+```
+
+_Clean the environment._
+```{r ClearEnvironment, echo = FALSE}
+rm(list = ls())
+```
+
+_Set locations, and the working directory ..._
+```{r LocalSystem, echo = FALSE}
+### Operating System Version
+### Mac Pro
+# ROOT_loc = "/Volumes/EliteProQx2Media"
+# GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
+
+### MacBook
+ROOT_loc = "/Users/swvanderlaan"
+GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+
+### Generic Locations
+AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
+RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
+TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+
+### SOME VARIABLES WE NEED DOWN THE LINE
+cat("\nDefining phenotypes and datasets.\n")
+PROJECTNAME="AERNA"
+
+cat("\nCreate a new analysis directory, including subdirectories.\n")
+# Analysis
+ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       FALSE)
+ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
+
+# Plots
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
+       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
+       FALSE)
+PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
+
+# QC plots
+ifelse(!dir.exists(file.path(PLOT_loc, "/QC")), 
+       dir.create(file.path(PLOT_loc, "/QC")), 
+       FALSE)
+QC_loc = paste0(PLOT_loc,"/QC")
+
+# Output files
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       FALSE)
+OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
+
+cat("\nSetting working directory and listing its contents.\n")
+setwd(paste0(PROJECT_loc))
+getwd()
+list.files()
+```
+
+_... a package-installation function ..._
+```{r Function: installations, echo=FALSE}
+install.packages.auto <- function(x) { 
+  x <- as.character(substitute(x)) 
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else { 
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented. 
+    # update.install.packages.auto(ask = FALSE) 
+    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
+  }
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else {
+    if (!requireNamespace("BiocManager"))
+      install.packages("BiocManager")
+    # BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
+    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  }
+}
+```
+
+_... and load those packages._
+```{r Setting: loading_packages, echo=FALSE}
+install.packages.auto("readr")
+install.packages.auto("optparse")
+install.packages.auto("tools")
+install.packages.auto("dplyr")
+install.packages.auto("tidyr")
+install.packages.auto("tidylog")
+library("tidylog", warn.conflicts = FALSE)
+install.packages.auto("naniar")
+
+# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
+# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
+# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
+library(data.table)
+
+install.packages.auto("tidyverse")
+install.packages.auto("knitr")
+install.packages.auto("DT")
+
+install.packages.auto("pheatmap")
+
+install.packages.auto("reshape2")
+
+install.packages.auto("ggpubr")
+install.packages.auto("patchwork")
+install.packages.auto("corrr")
+
+install.packages.auto("haven")
+install.packages.auto("tableone")
+
+# Install the devtools package from Hadley Wickham
+install.packages.auto('devtools')
+
+install.packages.auto("GenomicRanges")
+install.packages.auto("SummarizedExperiment")
+install.packages.auto("DESeq2")
+install.packages.auto("org.Hs.eg.db")
+install.packages.auto("mygene")
+install.packages.auto("EnhancedVolcano")
+
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors, echo=FALSE}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+### UtrechtScienceParkColoursScheme
+###
+### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
+### Forsomefunctionsyoushoulddividethesenumbersby255.
+### 
+###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
+###---------------------------------------------------------------------------------------
+###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
+###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
+###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
+###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
+###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
+###	6	  pink			      #D5267B (213,38,123)				      =>	6		
+###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
+###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
+###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
+###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
+###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
+###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
+###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
+###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
+###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
+###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
+###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
+###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
+###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
+###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
+###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
+###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
+###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
+###	24	green			      #49A01D (73,160,29)				      =>	24/Y
+###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
+###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
+###
+###	ADDITIONAL COLORS
+###	27	midgrey			#D7D8D7
+###	28	verylightgrey	#ECECEC"
+###	29	white			#FFFFFF
+###	30	black			#000000
+###----------------------------------------------------------------------------------------------
+
+uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
+                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
+                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
+                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
+                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
+                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
+                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
+                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
+                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
+                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+#ggplot2 default color palette
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+### ----------------------------------------------------------------------------
+```
+
+# ERA-CVD 'druggable-MI-targets'
+<!-- ![ERA-CVD logo]("Users/swvanderlaan/iCloud/Genomics/Projects/#Druggable-MI-Genes/Administration/ERA-CVD\ Logo_CMYK.jpg") -->
+
+For the ERA-CVD 'druggable-MI-targets' project (grantnumber: 01KL1802) we will perform two related RNA sequencing (RNAseq) experiments:
+
+1) conventional ('bulk') RNAseq using RNA extracted from carotid plaque samples, n ± 700. As of `r Today.Report` all samples have been selected and RNA has been extracted; quality control (QC) was performed and we have a dataset of 635 samples.
+
+2) single-cell RNAseq (scRNAseq) of at least n = 40 samples (20 females, 20 males). As of `r Today.Report` data is available of 40 samples (3 females, 15 males), we are extending sampling to get more female samples.
+
+Plaque samples are derived from carotid endarterectomies as part of the [Athero-Express Biobank Study](http:www/atheroexpress.nl) which is an ongoing study in the UMC Utrecht.
+
+
+# Background
+
+Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
+
+- IndSigSNPsforSander.xlsx
+- GeneList_15042020.xlsx
+
+```{r CAC targets}
+library(openxlsx)
+
+CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+
+CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
+
+
+DT::datatable(CAC_gene_list)
+
+DT::datatable(CAC_variants)
+
+```
+
+We will construct a list of genes to map to our scRNAseq data. 
+
+```{r CAC targets for mapping}
+
+CAC_target_genes <- unlist(CAC_gene_list$symbol)
+CAC_target_genes
+target_genes = CAC_target_genes
+```
+
+
+# Load data
+First we will load the data:
+
+- scRNAseq experimental data and rename the cell types.
+- Athero-Express clinical data.
+
+## AERNA: bulk RNAseq from carotid plaques
+
+Here we load the latest dataset from our Athero-Express bulk RNA experiment d.d. 2019-12-11 mapped to b37 and Ensembl 87. 
+
+These bulk RNAseq data are filtered and corrected:
+
+- UMI corrected
+- unmappable genes are excluded
+
+
+```{r LoadData}
+# bulk RNAseq data
+bulkRNA_counts <- fread(paste0(RAWDATA,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_raw_counts_UMIcorr_weird_genes_filtered.txt"))
+
+# batch information
+bulkRNA_meta <- fread(paste0(RAWDATA,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
+
+```
+
+Quick peek at the counts and meta-data of the RNAseq experiment.
+
+```{r QuickPeek}
+
+head(bulkRNA_counts)
+
+head(bulkRNA_meta)
+```
+
+<!-- We will fix the `STUDY_NUMBER` header and variable.  -->
+<!-- ```{r FixBulkRNAseq} -->
+
+<!-- # counts -->
+<!-- for ( col in 6:ncol(bulkRNA_counts)){ -->
+<!--     colnames(bulkRNA_counts)[col] <-  gsub("[a-zA-Z ]", "", colnames(bulkRNA_counts)[col]) -->
+<!-- } -->
+
+<!-- head(bulkRNA_counts) -->
+
+<!-- # meta data -->
+<!-- bulkRNA_meta$study_number <- gsub("[a-zA-Z ]", "", bulkRNA_meta$study_number) -->
+
+<!-- names(bulkRNA_meta)[names(bulkRNA_meta) == "study_number"] <- "STUDY_NUMBER" -->
+
+
+<!-- head(bulkRNA_meta) -->
+<!-- ``` -->
+
+## Athero-Express Biobank Study: clinical data
+
+Loading Athero-Express clinical data.
+```{r LoadAEDB}
+require(haven)
+
+# AEDB <- haven::read_sav(paste0(AEDB_loc, "/2019-3NEW_AtheroExpressDatabase_ScientificAE_02072019_IC_added.sav"))
+AEDB <- haven::read_sav(paste0(AEDB_loc, "/2020_1_NEW_AtheroExpressDatabase_ScientificAE_16-03-2020.sav"))
+
+```
+
+### Fix STUDY_NUMBER
+
+We will fix the `STUDY_NUMBER` to match the bulkRNAseq data.
+```{r FixStudyNumber}
+
+AEDB$study_number <- paste0("ae", AEDB$STUDY_NUMBER)
+head(AEDB$study_number)
+
+```
+
+
+### Fixing and creating variables
+
+We need to be very strict in defining _symptoms._ Therefore we will fix a new variable that groups _symptoms_ at inclusion.
+
+Coding of _symptoms_ is as follows:
+
+- missing	-999	
+- Asymptomatic	0	
+- TIA	1	
+- minor stroke	2	
+- Major stroke	3	
+- Amaurosis fugax	4	
+- Four vessel disease	5	
+- Vertebrobasilary TIA	7	
+- Retinal infarction	8	
+- Symptomatic, but aspecific symtoms	9
+- Contralateral symptomatic occlusion	10	
+- retinal infarction	11	
+- armclaudication due to occlusion subclavian artery, CEA needed for bypass	12	
+- retinal infarction + TIAs	13	
+- Ocular ischemic syndrome	14	
+- ischemisch glaucoom	15	
+- subclavian steal syndrome	16	
+- TGA	17
+
+We will group as follows in `Symptoms.5G`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13
+3. Stroke > 2, 3
+4. Ocular > 4, 14, 15
+5. Retinal infarction > 8, 11
+6. Other > 5, 9, 10, 12, 16, 17
+
+We will also group as follows in `AsymptSympt`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13 + Stroke > 2, 3 
+3. Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
+
+We will also group as follows in `AsymptSympt2G`:
+
+1. Asymptomatic > 0
+2. TIA > 1, 7, 13 + Stroke > 2, 3 Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
+
+
+```{r FixSymptoms, message=FALSE, warning=FALSE}
+# Fix symptoms
+
+attach(AEDB)
+
+AEDB$sympt[is.na(AEDB$sympt)] <- -999
+
+# Symptoms.5G
+AEDB[,"Symptoms.5G"] <- NA
+# AEDB$Symptoms.5G[sympt == "NA"] <- "Asymptomatic"
+AEDB$Symptoms.5G[sympt == -999] <- NA
+AEDB$Symptoms.5G[sympt == 0] <- "Asymptomatic"
+AEDB$Symptoms.5G[sympt == 1 | sympt == 7 | sympt == 13] <- "TIA"
+AEDB$Symptoms.5G[sympt == 2 | sympt == 3] <- "Stroke"
+AEDB$Symptoms.5G[sympt == 4 | sympt == 14 | sympt == 15 ] <- "Ocular"
+AEDB$Symptoms.5G[sympt == 8 | sympt == 11] <- "Retinal infarction"
+AEDB$Symptoms.5G[sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Other"
+
+# AsymptSympt
+AEDB[,"AsymptSympt"] <- NA
+AEDB$AsymptSympt[sympt == -999] <- NA
+AEDB$AsymptSympt[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3] <- "Symptomatic"
+AEDB$AsymptSympt[sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Ocular and others"
+
+# AsymptSympt
+AEDB[,"AsymptSympt2G"] <- NA
+AEDB$AsymptSympt2G[sympt == -999] <- NA
+AEDB$AsymptSympt2G[sympt == 0] <- "Asymptomatic"
+AEDB$AsymptSympt2G[sympt == 1 | sympt == 7 | sympt == 13 | sympt == 2 | sympt == 3 | sympt == 4 | sympt == 14 | sympt == 15 | sympt == 8 | sympt == 11 | sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Symptomatic"
+
+detach(AEDB)
+
+# table(AEDB$sympt, useNA = "ifany")
+# table(AEDB$AsymptSympt2G, useNA = "ifany")
+# table(AEDB$Symptoms.5G, useNA = "ifany")
+# 
+# table(AEDB$AsymptSympt2G, AEDB$sympt, useNA = "ifany")
+# table(AEDB$Symptoms.5G, AEDB$sympt, useNA = "ifany")
+table(AEDB$AsymptSympt2G, AEDB$Symptoms.5G, useNA = "ifany")
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "sympt", "Symptoms.5G", "AsymptSympt"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# table(AEDB.temp$Symptoms.5G, AEDB.temp$AsymptSympt)
+# 
+# rm(AEDB.temp)
+
+```
+
+We will also fix the _plaquephenotypes_ variable.  
+
+Coding of symptoms is as follows:
+
+- missing	-999	
+- not relevant -888
+- fibrous	1	
+- fibroatheromatous	2	
+- atheromatous	3	
+
+
+```{r FixPlaquePhenotypes, message=FALSE, warning=FALSE}
+
+# Fix plaquephenotypes
+attach(AEDB)
+AEDB[,"OverallPlaquePhenotype"] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == -999] <- NA
+AEDB$OverallPlaquePhenotype[plaquephenotype == 1] <- "fibrous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 2] <- "fibroatheromatous"
+AEDB$OverallPlaquePhenotype[plaquephenotype == 3] <- "atheromatous"
+detach(AEDB)
+
+table(AEDB$OverallPlaquePhenotype)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "plaquephenotype", "OverallPlaquePhenotype"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+We will also fix the _diabetes_ status variable. We define diabetes as history of a diagnosis and/or use of glucose-lowering medications.
+
+```{r FixDiabetes, message=FALSE, warning=FALSE}
+# Fix diabetes
+attach(AEDB)
+AEDB[,"DiabetesStatus"] <- NA
+AEDB$DiabetesStatus[DM.composite == -999] <- NA
+AEDB$DiabetesStatus[DM.composite == 0] <- "Control (no Diabetes Dx/Med)"
+AEDB$DiabetesStatus[DM.composite == 1] <- "Diabetes"
+detach(AEDB)
+
+table(AEDB$DM.composite)
+
+table(AEDB$DiabetesStatus)
+
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+```
+
+
+We will also fix the _smoking_ status variable. We are interested in whether someone never, ever or is currently (at the time of inclusion) smoking. This is based on the questionnaire. 
+
+- `diet801`: are you a smoker?
+- `diet802`: did you smoke in the past?
+
+We already have some variables indicating smoking status:
+
+- `SmokingReported`: patient has reported to smoke.
+- `SmokingYearOR`: smoking in the year of surgery?
+- `SmokerCurrent`: currently smoking?
+
+
+
+```{r FixSmoking, message=FALSE, warning=FALSE}
+require(labelled)
+AEDB$diet801 <- to_factor(AEDB$diet801)
+AEDB$diet802 <- to_factor(AEDB$diet802)
+AEDB$diet805 <- to_factor(AEDB$diet805)
+AEDB$SmokingReported <- to_factor(AEDB$SmokingReported)
+AEDB$SmokerCurrent <- to_factor(AEDB$SmokerCurrent)
+AEDB$SmokingYearOR <- to_factor(AEDB$SmokingYearOR)
+
+# table(AEDB$diet801)
+# table(AEDB$diet802)
+# table(AEDB$SmokingReported)
+# table(AEDB$SmokerCurrent)
+# table(AEDB$SmokingYearOR)
+# table(AEDB$SmokingReported, AEDB$SmokerCurrent, useNA = "ifany", dnn = c("Reported smoking", "Current smoker"))
+# 
+# table(AEDB$diet801, AEDB$diet802, useNA = "ifany", dnn = c("Smoker", "Past smoker"))
+
+cat("\nFixing smoking status.\n")
+attach(AEDB)
+AEDB[,"SmokerStatus"] <- NA
+AEDB$SmokerStatus[diet802 == "don't know"] <- "Never smoked"
+AEDB$SmokerStatus[diet802 == "I still smoke"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "no"] <- "Never smoked"
+AEDB$SmokerStatus[SmokerCurrent == "no" & diet802 == "yes"] <- "Ex-smoker"
+AEDB$SmokerStatus[SmokerCurrent == "yes"] <- "Current smoker"
+AEDB$SmokerStatus[SmokerCurrent == "no data available/missing"] <- NA
+# AEDB$SmokerStatus[is.na(SmokerCurrent)] <- "Never smoked"
+detach(AEDB)
+
+cat("\n* Current smoking status.\n")
+table(AEDB$SmokerCurrent,
+      useNA = "ifany", 
+      dnn = c("Current smoker"))
+
+cat("\n* Updated smoking status.\n")
+table(AEDB$SmokerStatus,
+      useNA = "ifany", 
+      dnn = c("Updated smoking status"))
+
+cat("\n* Comparing to 'SmokerCurrent'.\n")
+table(AEDB$SmokerStatus, AEDB$SmokerCurrent, 
+      useNA = "ifany", 
+      dnn = c("Updated smoking status", "Current smoker"))
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$DiabetesStatus <- to_factor(AEDB.temp$DiabetesStatus)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+We will also fix the _alcohol_ status variable.
+
+
+```{r FixAlcohol, message=FALSE, warning=FALSE}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"AlcoholUse"] <- NA
+AEDB$AlcoholUse[diet810 == -999] <- NA
+AEDB$AlcoholUse[diet810 == 0] <- "No"
+AEDB$AlcoholUse[diet810 == 1] <- "Yes"
+detach(AEDB)
+
+table(AEDB$AlcoholUse)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+We will also fix a history of CAD, stroke or peripheral intervention status variable. This will be based on `CAD_history`, `Stroke_history`, and `Peripheral.interv`
+
+```{r FixCAD_History, message=FALSE, warning=FALSE}
+
+# Fix diabetes
+attach(AEDB)
+AEDB[,"MedHx_CVD"] <- NA
+AEDB$MedHx_CVD[CAD_history == 0 | Stroke_history == 0 | Peripheral.interv == 0] <- "No"
+AEDB$MedHx_CVD[CAD_history == 1 | Stroke_history == 1 | Peripheral.interv == 1] <- "yes"
+detach(AEDB)
+
+table(AEDB$CAD_history)
+table(AEDB$Stroke_history)
+table(AEDB$Peripheral.interv)
+table(AEDB$MedHx_CVD)
+
+# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
+# require(labelled)
+# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
+# 
+# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+# 
+# rm(AEDB.temp)
+
+
+```
+
+
+# Athero-Express Biobank Study
+
+## Baseline characteristics
+
+We are interested in the following variables at baseline.
+
+- Age (years)
+- Female sex (N, %)
+- Hypertension (N, %)
+- SBP (mmHg)
+- DBP (mmHg)
+- Diabetes mellitus (N, %)
+- Total cholesterol levels (mg/dL)
+- LDL cholesterol levels (mg/dL)
+- HDL cholesterol levels (mg/dL)
+- Triglyceride levels (mg/dL)
+- Use of statins (N, %)
+- Use of antiplatelet drugs (N, %)
+- BMI (kg/m²)
+- Smoking status (N, %)
+  - Never smokers
+  - Ex-smokers
+  - Current smokers
+- History of CAD (N, %)
+- History of PAD (N, %)
+- Clinical manifestations
+  - Asymptomatic
+  - Amaurosis fugax
+  - TIA
+  - Stroke
+- eGFR (mL/min/1.73 m²)
+
+
+```{r Baseline AEDB: creation, include = FALSE}
+cat("====================================================================================================\n")
+cat("SELECTION THE SHIZZLE\n")
+
+### Artery levels
+# AEdata$Artery_summary: 
+#           value                                                                                   label
+# NOT USE - 0 No artery known (yet), no surgery (patient ill, died, exited study), re-numbered to AAA
+# USE - 1                                                                  carotid (left & right)
+# USE - 2                                               femoral/iliac (left, right or both sides)
+# NOT USE - 3                                               other carotid arteries (common, external)
+# NOT USE - 4                                   carotid bypass and injury (left, right or both sides)
+# NOT USE - 5                                                         aneurysmata (carotid & femoral)
+# NOT USE - 6                                                                                   aorta
+# NOT USE - 7                                            other arteries (renal, popliteal, vertebral)
+# NOT USE - 8                        femoral bypass, angioseal and injury (left, right or both sides)
+
+### AEdata$informedconsent
+#           value                                                                                           label
+# NOT USE - -999                                                                                         missing
+# NOT USE - 0                                                                                        no, died
+# USE - 1                                                                                             yes
+# USE - 2                                                             yes, health treatment when possible
+# USE - 3                                                                        yes, no health treatment
+# USE - 4                                                yes, no health treatment, no commercial business
+# NOT USE - 5                                                          yes, no tissue, no commerical business
+# NOT USE - 6                      yes, no tissue, no questionnaires, no medical info, no commercial business
+# USE - 7                             yes, no questionnaires, no health treatment, no commercial business
+# USE - 8                                          yes, no questionnaires, health treatment when possible
+# NOT USE - 9                  yes, no tissue, no questionnaires, no health treatment, no commerical business
+# USE - 10                               yes, no health treatment, no medical info, no commercial business
+# NOT USE - 11 yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business
+# USE - 12                                                     yes, no questionnaires, no health treatment
+# NOT USE - 13                                                             yes, no tissue, no health treatment
+# NOT USE - 14                                                               yes, no tissue, no questionnaires
+# NOT USE - 15                                                  yes, no tissue, health treatment when possible
+# NOT USE - 16                                                                                  yes, no tissue
+# USE - 17                                                                     yes, no commerical business
+# USE - 18                                     yes, health treatment when possible, no commercial business
+# USE - 19                                                    yes, no medical info, no commercial business
+# USE - 20                                                                          yes, no questionnaires
+# NOT USE - 21                         yes, no tissue, no questionnaires, no health treatment, no medical info
+# NOT USE - 22                  yes, no tissue, no questionnaires, no health treatment, no commercial business
+# USE - 23                                                                            yes, no medical info
+# USE - 24                                                  yes, no questionnaires, no commercial business
+# USE - 25                                    yes, no questionnaires, no health treatment, no medical info
+# USE - 26                  yes, no questionnaires, health treatment when possible, no commercial business
+# USE - 27                                                      yes,  no health treatment, no medical info
+# NOT USE - 28                                                                             no, doesn't want to
+# NOT USE - 29                                                                              no, unable to sign
+# NOT USE - 30                                                                                 no, no reaction
+# NOT USE - 31                                                                                        no, lost
+# NOT USE - 32                                                                                     no, too old
+# NOT USE - 34                                            yes, no medical info, health treatment when possible
+# NOT USE - 35                                             no (never asked for IC because there was no tissue)
+# USE - 36                    yes, no medical info, no commercial business, health treatment when possible
+# NOT USE - 37                                                                                    no, endpoint
+# USE - 38                                                         wil niets invullen, wel alles gebruiken
+# USE - 39                                           second informed concents: yes, no commercial business
+# NOT USE - 40                                                                              nooit geincludeerd
+
+cat("- sanity checking PRIOR to selection")
+library(data.table)
+ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
+ae.hospital <- ifelse(AEDB$Hospital == 1, "Antonius", "UMCU")
+table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"))
+ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
+table(ae.gender, AEDB$Artery_summary, dnn = c("Sex", "Artery"))
+# table(ae.gender, AEDB$informedconsent, dnn = c("Sex", "IC"))
+
+rm(ae.gender, ae.hospital)
+
+# I change numeric and factors manually because, well, I wouldn't know how to fix it otherwise
+# to have this 'tibble' work with 'tableone'... :-)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$diastoli <- as.numeric(AEDB$diastoli)
+AEDB$systolic <- as.numeric(AEDB$systolic)
+
+AEDB$TC_finalCU <- as.numeric(AEDB$TC_finalCU)
+AEDB$LDL_finalCU <- as.numeric(AEDB$LDL_finalCU)
+AEDB$HDL_finalCU <- as.numeric(AEDB$HDL_finalCU)
+AEDB$TG_finalCU <- as.numeric(AEDB$TG_finalCU)
+
+AEDB$TC_final <- as.numeric(AEDB$TC_final)
+AEDB$LDL_final <- as.numeric(AEDB$LDL_final)
+AEDB$HDL_final <- as.numeric(AEDB$HDL_final)
+AEDB$TG_final <- as.numeric(AEDB$TG_final)
+
+AEDB$Age <- as.numeric(AEDB$Age)
+AEDB$GFR_MDRD <- as.numeric(AEDB$GFR_MDRD)
+AEDB$BMI <- as.numeric(AEDB$BMI)
+AEDB$eCigarettes <- as.numeric(AEDB$eCigarettes)
+AEDB$ePackYearsSmoking <- as.numeric(AEDB$ePackYearsSmoking)
+AEDB$EP_composite_time <- as.numeric(AEDB$EP_composite_time)
+
+AEDB$macmean0 <- as.numeric(AEDB$macmean0)
+AEDB$smcmean0 <- as.numeric(AEDB$smcmean0)
+AEDB$neutrophils <- as.numeric(AEDB$neutrophils)
+AEDB$Mast_cells_plaque <- as.numeric(AEDB$Mast_cells_plaque)
+AEDB$vessel_density_averaged <- as.numeric(AEDB$vessel_density_averaged)
+
+AEDB$MAC_rankNorm <- qnorm((rank(AEDB$macmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$macmean0)))
+AEDB$SMC_rankNorm <- qnorm((rank(AEDB$smcmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$smcmean0)))
+AEDB$Neutrophils_rankNorm <- qnorm((rank(AEDB$neutrophils, na.last = "keep") - 0.5) / sum(!is.na(AEDB$neutrophils)))
+AEDB$MastCells_rankNorm <- qnorm((rank(AEDB$Mast_cells_plaque, na.last = "keep") - 0.5) / sum(!is.na(AEDB$Mast_cells_plaque)))
+AEDB$VesselDensity_rankNorm <- qnorm((rank(AEDB$vessel_density_averaged, na.last = "keep") - 0.5) / sum(!is.na(AEDB$vessel_density_averaged)))
+
+
+require(labelled)
+AEDB$ORyear <- to_factor(AEDB$ORyear)
+AEDB$Gender <- to_factor(AEDB$Gender)
+AEDB$Hospital <- to_factor(AEDB$Hospital)
+AEDB$KDOQI <- to_factor(AEDB$KDOQI)
+AEDB$BMI_WHO <- to_factor(AEDB$BMI_WHO)
+AEDB$DiabetesStatus <- to_factor(AEDB$DiabetesStatus)
+AEDB$SmokerStatus <- to_factor(AEDB$SmokerStatus)
+AEDB$AlcoholUse <- to_factor(AEDB$AlcoholUse)
+
+AEDB$Hypertension.selfreport <- to_factor(AEDB$Hypertension1)
+AEDB$Hypertension.selfreportdrug <- to_factor(AEDB$Hypertension2)
+AEDB$Hypertension.composite <- to_factor(AEDB$Hypertension.composite)
+AEDB$Hypertension.drugs <- to_factor(AEDB$Hypertension.drugs)
+
+AEDB$Med.anticoagulants <- to_factor(AEDB$Med.anticoagulants)
+AEDB$Med.all.antiplatelet <- to_factor(AEDB$Med.all.antiplatelet)
+AEDB$Med.Statin.LLD <- to_factor(AEDB$Med.Statin.LLD)
+
+AEDB$Stroke_Dx <- to_factor(AEDB$Stroke_Dx)
+AEDB$CAD_history <- to_factor(AEDB$CAD_history)
+AEDB$PAOD <- to_factor(AEDB$PAOD)
+AEDB$Peripheral.interv <- to_factor(AEDB$Peripheral.interv)
+AEDB$MedHx_CVD <- to_factor(AEDB$MedHx_CVD)
+
+
+AEDB$sympt <- to_factor(AEDB$sympt)
+AEDB$Symptoms.3g <- to_factor(AEDB$Symptoms.3g)
+AEDB$Symptoms.4g <- to_factor(AEDB$Symptoms.4g)
+AEDB$Symptoms.5G <- to_factor(AEDB$Symptoms.5G)
+AEDB$AsymptSympt <- to_factor(AEDB$AsymptSympt)
+AEDB$AsymptSympt2G <- to_factor(AEDB$AsymptSympt2G)
+
+
+AEDB$restenos <- to_factor(AEDB$restenos)
+AEDB$stenose <- to_factor(AEDB$stenose)
+AEDB$EP_composite <- to_factor(AEDB$EP_composite)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+AEDB$OverallPlaquePhenotype <- to_factor(AEDB$OverallPlaquePhenotype)
+
+AEDB$Artery_summary <- to_factor(AEDB$Artery_summary)
+
+AEDB$informedconsent <- to_factor(AEDB$informedconsent)
+
+AEDB.CEA <- subset(AEDB,
+                    (Artery_summary == "carotid (left & right)" | Artery_summary == "other carotid arteries (common, external)") & # we only want carotids
+                       informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+# AEDB.CEA[1:10, 1:10]
+dim(AEDB.CEA)
+
+AEDB.full <- subset(AEDB,
+                    informedconsent != "missing" & # we are really strict in selecting based on 'informed consent'!
+                       informedconsent != "no, died" &
+                       informedconsent != "yes, no tissue, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commerical business" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info, no commercial business" &
+                       informedconsent != "yes, no tissue, no health treatment" &
+                       informedconsent != "yes, no tissue, no questionnaires" &
+                       informedconsent != "yes, no tissue, health treatment when possible" &
+                       informedconsent != "yes, no tissue" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no medical info" &
+                       informedconsent != "yes, no tissue, no questionnaires, no health treatment, no commercial business" &
+                       informedconsent != "no, doesn't want to" &
+                       informedconsent != "no, unable to sign" &
+                       informedconsent != "no, no reaction" &
+                       informedconsent != "no, lost" &
+                       informedconsent != "no, too old" &
+                       informedconsent != "yes, no medical info, health treatment when possible" &
+                       informedconsent != "no (never asked for IC because there was no tissue)" &
+                       informedconsent != "no, endpoint" &
+                       informedconsent != "nooit geincludeerd")
+# AEDB.CEA[1:10, 1:10]
+dim(AEDB.full)
+
+```
+
+```{r}
+cat("===========================================================================================\n")
+cat("CREATE BASELINE TABLE\n")
+
+# Baseline table variables
+basetable_vars = c("Hospital", "ORyear",
+                   "Age", "Gender", 
+                   "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
+                   "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   "systolic", "diastoli", "GFR_MDRD", "BMI", 
+                   "KDOQI", "BMI_WHO",
+                   "SmokerStatus", "AlcoholUse",
+                   "DiabetesStatus", 
+                   "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                   "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                   "restenos", "stenose",
+                   "MedHx_CVD", "CAD_history", "PAOD", "Peripheral.interv", 
+                   "EP_composite", "EP_composite_time",
+                   "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin",
+                   "neutrophils", "Mast_cells_plaque",
+                   "IPH.bin", "vessel_density_averaged",
+                   "Calc.bin", "Collagen.bin", 
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype",
+                   "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")
+
+basetable_bin = c("Gender", 
+                  "KDOQI", "BMI_WHO",
+                  "SmokerStatus", "AlcoholUse",
+                  "DiabetesStatus", 
+                  "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
+                  "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                  "restenos", "stenose",
+                  "CAD_history", "PAOD", "Peripheral.interv", 
+                  "EP_composite", "Macrophages.bin", "SMC.bin",
+                  "IPH.bin", 
+                  "Calc.bin", "Collagen.bin", 
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype")
+# basetable_bin
+
+basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
+# basetable_con
+```
+
+Showing the baseline table of the whole Athero-Express Biobank.
+
+```{r Baseline AEDB: Visualize AEDB}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEDB.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         # strata = "Symptoms.4g",
+                                         data = AEDB.full, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:3]
+```
+
+
+```{r Baseline AEDB: Visualize AEDB CEA}
+# Create baseline tables
+# http://rstudio-pubs-static.s3.amazonaws.com/13321_da314633db924dc78986a850813a50d5.html
+AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars, 
+                                         # factorVars = basetable_bin,
+                                         # strata = "Symptoms.4g",
+                                         data = AEDB.CEA, includeNA = TRUE), 
+                          nonnormal = c(), missing = TRUE,
+                          quote = FALSE, noSpaces = FALSE, showAllLevels = TRUE, explain = TRUE, 
+                          format = "pf", 
+                          contDigits = 3)[,1:3]
+```
+
+
+## AERNA: SummarizedExperiment()
+
+### Tidy data
+
+We have collected the clinical data, Athero-Express Biobank Study `AEDB` and, the UMI-corrected, filtered bulk RNAseq data, `bulkRNA_counts` and its meta-data, `bulkRNA-meta`. 
+
+Here we will clean up the data and create a `SummarizedExperiment()` object for downstream analyses anad visualizations. 
+
+```{r tidyCounts}
+bulkRNA_counts %<>%
+     drop_na(chr) %>%   # remove rows that have no information of start, end, chromosome and/or strand
+     dplyr::select(1:6, one_of(sort(bulkRNA_meta$study_number))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+
+# Cut up bulkRNA_counts into 'assay' and 'ranges' part
+counts <- as.data.frame(bulkRNA_counts[,-(1:6)])              ## assay part
+rownames(counts) <- bulkRNA_counts$ensembl_gene_id               ## assign rownames
+rowRanges <- GRanges(bulkRNA_counts$chr,					## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
+                     IRanges(bulkRNA_counts$start, bulkRNA_counts$end),
+                     strand = bulkRNA_counts$strand,
+                     feature_id = bulkRNA_counts$ensembl_gene_id) #, df$pid)
+
+# combine meta data from experiment with clinical data
+bulkRNA_meta_clin <- merge(bulkRNA_meta, AEDB, by.x = "study_number", by.y = "study_number",
+                           sort = FALSE, all.x = TRUE)
+
+bulkRNA_meta_clin %<>%
+  # mutate(macrophages = factor(macrophages, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(smc = factor(smc, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(calcification = factor(calcification, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(collagen = factor(collagen, levels = c("no staining", "minor staining", "moderate staining", "heavy staining"))) %>% 
+  # mutate(fat = factor(fat, levels = c("no fat", "< 40% fat", "> 40% fat"))) %>% 
+  mutate(study_number_row = study_number) %>%
+  as.data.frame() %>%
+  column_to_rownames("study_number_row")
+
+head(bulkRNA_meta_clin)
+dim(bulkRNA_meta_clin)
+
+```
+
+Do the study numbers correspond between metadata and expression data?
+```{r matching_names}
+## check whether rownames metadata and colnames counts are identical
+all(rownames(bulkRNA_meta_clin) == colnames(counts))
+
+```
+
+### SummarizedExperiment
+
+Here we create a container that brings all data together.
+```{r se}
+(AERNASE <- SummarizedExperiment(assays = list(counts = as.matrix(counts)),  ## as.matrix() is important here, to get dimnames the same (?) - see error below if you don't use this
+                            rowRanges = rowRanges, 
+                            colData = bulkRNA_meta_clin,
+                            metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused.")   )
+```
+
+So, now we have raw counts for all patients included in the bulk RNAseq data, with all clinical data annotated to them.
+
+Some of the patients might be missing in certain variables:
+```{r missing_values, eval = FALSE}
+# We know that some of the patients of the RNAseq is not included in some variables
+which(is.na(AERNASE$Gender)) 
+
+missing_values <- which(is.na(AERNASE$Gender))
+```
+
+No need to remove missing samples based on a variable, since we will make a DESeq2 object using an empty model.
+
+```{r remove_missing, eval = FALSE}
+(AERNASE <- AERNASE[,])
+# (AERNASE <- AERNASE[, -missing_values])
+# (se <- se[, se$sex == "male"])
+
+
+```
+
+# Expression differences
+
+From here we can analyze whether specific genes differ between groups, or do this for the entire gene set as part of DE analysis, and then select our genes of interest. Let's start with the former.
+
+## Prepare DDS and VSD
+The dds raw counts need normalization and log transformation first.
+
+```{r model_exploration, cache = TRUE}
+AERNAdds <- DESeqDataSet(AERNASE, design = ~ 1)
+
+# Determine the size factors to use for normalization
+AERNAdds <- estimateSizeFactors(AERNAdds)
+# sizeFactors(AERNAdds)
+
+# Extract the normalized counts
+normalized_counts <- counts(AERNAdds, normalized = TRUE)
+# head(normalized_counts)
+
+# Log transform counts for QC
+AERNAvsd <- vst(AERNAdds, blind = TRUE)
+
+
+```
+
+## Extract data of interest
+From here, extract the gene expression values, plus gene identifier, annotate with gene symbol, and select the genes of our interest _`r CAC_target_genes`_.
+```{r expression_data_selection}
+expression_data <- assay(AERNAvsd)
+
+# extract expression values from vsd, including ensembl names
+expression_data <- as_tibble(data.frame(gene_ensembl = rowRanges(AERNAvsd)$feature_id, assay(AERNAvsd))) %>%
+     mutate_at(vars(c("gene_ensembl")), list(as.character)) ## gene_ensembl needs to be character for annotation to work
+
+# annotations
+# gene symbol - via org.Hs.eg.db
+# columns(org.Hs.eg.db)
+expression_data$symbol <- mapIds(org.Hs.eg.db,
+                    keys = expression_data$gene_ensembl,
+                    column = "SYMBOL",
+                    keytype = "ENSEMBL",
+                    multiVals = "first")
+
+# tidy and subset
+expression_data_sel <- expression_data %>%
+     dplyr::select(gene_ensembl, symbol, everything()) %>%
+     # filter(symbol == "APOE" | symbol == "TRIB3") %>% # filter APOE and TRIB3
+     filter(symbol %in% target_genes)
+
+head(expression_data_sel)
+
+# tidy and subset non-selected genes
+set.seed(1000)
+expression_data_sample <- expression_data %>%
+     dplyr::select(gene_ensembl, symbol, everything()) %>%
+     sample_n(1000) %>%
+     unite(symbol_ensembl, symbol, gene_ensembl, sep = "_", remove = FALSE)
+
+expression_data_sample_mean <- expression_data_sample %>%
+  select_if(is.numeric) %>%
+  colMeans() %>%
+  as_tibble(rownames = "study_number") %>%
+  dplyr::rename(expression_value_sample = value)
+
+```
+
+Furthermore, the expression_data_sel df was gathered into a long form df for annotation with symptoms variables from vsd object, and later visualization and statistics.
+```{r gather}
+# gather expression_data_sel df into long df form for annotation, plotting and statistics
+expression_long <-
+     gather(expression_data_sel, key = "study_number", value = "expression_value", -c(gene_ensembl, symbol))
+
+# old school way
+# Annotate with smoking variables
+# sample_ids <- expression_long$study_number
+# mm <- match(expression_long$study_number, rownames(colData(vsd)))
+#
+# ## Add traits to df
+# ## Binary traits
+# expression_long$sex <- colData(vsd)$sex[mm]
+# expression_long$testosterone <- colData(vsd)$testosterone[mm]
+# expression_long$t_e2_ratio <- colData(vsd)$t_e2_ratio[mm]
+
+# new school way
+plaque_phenotypes_cat <- c("Macrophages.bin",
+                           "SMC.bin",
+                           "Calc.bin",
+                           "Collagen.bin",
+                           "Fat.bin_10", "Fat.bin_40",
+                           "IPH.bin")
+
+plaque_phenotypes_num <- c("MAC_rankNorm", #"macmean0",
+                           "SMC_rankNorm", #"smcmean0",
+                           "MastCells_rankNorm", #"mast_cells_plaque",
+                           "Neutrophils_rankNorm", #"neutrophils",
+                           "VesselDensity_rankNorm") #"vessel_density")
+
+expression_long <- expression_long %>%
+  left_join(bulkRNA_meta_clin %>% dplyr::select(study_number,
+                                       plaque_phenotypes_cat,
+                                       plaque_phenotypes_num,
+                                       epmajor.3years, epmajor.30days,
+                                       Gender, Hospital),
+            by = "study_number") %>%
+  mutate(epmajor_3years_yn = str_replace_all(epmajor.3years, c("Excluded" = "yes", "Included" = "no"))) %>%
+  mutate(epmajor.30days_yn = str_replace_all(epmajor.30days, c("Excluded" = "yes", "Included" = "no")))
+
+head(expression_long)
+
+# expression_long %>%
+#   write_tsv("genes_interest_expression.txt")
+```
+
+## Gene expression - distribution
+
+**Figure 1: Expression of genes of interest: boxplots**
+```{r boxplots_expression}
+
+for(GENE in target_genes){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "Gender",
+                          y = "expression_value",
+                          color = "Gender",
+                          palette = "npg",
+                          add = "jitter",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+**Figure 2A: Expression of genes of interest: histograms**
+```{r hist_expression}
+
+for(GENE in target_genes){
+  # cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  p1 <- ggpubr::gghistogram(temp,
+                          x = "expression_value",
+                          y = "..count..",
+                          color = "Gender", fill = "Gender",
+                          palette = "npg",
+                          add = "median",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+**Figure 2B: Expression of genes of interest: density plots**
+```{r dens_expression}
+
+for(GENE in target_genes){
+  # cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  p1 <- ggpubr::gghistogram(temp,
+                          x = "expression_value",
+                          y = "..density..",
+                          color = "Gender", fill = "Gender",
+                          palette = "npg",
+                          add = "median",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+
+## Compare expression to the expression of a sample of 1000 genes
+Based on the above graphs we can see that some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
+
+- AC011294.3
+- C9orf53 => CDKN2A-DT, not found
+- RP11-145E5.5
+- AL137026.1
+- PVRL2 => NECTIN2
+- C6orf195
+
+
+**Figure 3: comparing expression of genes of interest to mean expression of a 1000 random genes**
+```{r boxplots_expression_comparison, fig.width = 12}
+
+target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "PVRL2", "C6orf195")
+
+temp = target_genes[!target_genes %in% target_genes_rm]
+
+target_genes_qc <- c(temp)
+
+expression_wide <- expression_long %>%
+  dplyr::select(-gene_ensembl) %>%
+  spread(key = symbol, value = expression_value)
+
+# the next 3 lines of code gave an error when selecting for genes_interest, since one of the genes of interest is missing: FGF3 is not in the data set. So, we need to select for the other 15 genes.
+# genes_interest <- genes_interest[genes_interest$Symbol %in% unique(expression_long$symbol),]
+
+expression_wide2 <- expression_wide %>%
+  left_join(expression_data_sample_mean, by = "study_number") %>%
+  dplyr::select(study_number, target_genes_qc, expression_value_sample)
+
+expression_long2 <- expression_wide2 %>%
+  gather(gene, expression_value, -study_number) %>%
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 1000 genes"))) %>%
+  mutate(gene = factor(gene, levels = c("Mean of 1000 genes", target_genes_qc)))
+
+mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
+# head(expression_long2)
+# 
+
+  p1 <- ggpubr::ggboxplot(expression_long2,
+                          x = "gene",
+                          y = "expression_value",
+                          color = uithof_color[16],
+                          add = "jitter",
+                          add.params = list(size = 0.1, jitter = 0.2), 
+                          ylab = paste0("normalized expression ")
+                          ) +
+    geom_hline(yintercept = mean_1000_genes, linetype = "dashed", color = uithof_color[26]) + 
+    theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1, vjust = 1)) # change orientation of x-axis labels
+  p1
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.png"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.pdf"), plot = last_plot())
+  rm(p1 )
+
+
+```
+
+## Genes of interest vs. clinical and plaque traits
+
+```{r expr_vs_plaque_phenotypes}
+# create long df, containing one column for all numerical plaque phenotypes, one column for all categorical phenotypes, and one for the genes of interest
+
+expression_long_cat <- expression_long %>%
+  pivot_longer(cols = plaque_phenotypes_cat, names_to = "plaque_phenotype", values_to = "levels") %>%
+  mutate(levels = factor(levels, levels = c("no/minor", "moderate/heavy", 
+                                            " <10%", " >10%", 
+                                            "<40%", ">40%",
+                                            "no", "yes"))) # turn factor, and order factor levels for plotting
+expression_long_num <- expression_long %>%
+  pivot_longer(cols = plaque_phenotypes_num, names_to = "plaque_phenotype", values_to = "value")
+
+```
+
+
+### Plaque phenotypes
+
+We correlated the categorical plaque characteristics to gene expression.
+
+**Figure 4: genes of interest plotted over plaque phenotype levels**
+```{r boxplot_function, fig.width = 12, fig.height = 10}
+
+for(GENE in target_genes){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long_cat, symbol == GENE)
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "plaque_phenotype",
+                          y = "expression_value",
+                          color = "levels",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 0.1, jitter = 0.2),
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+
+```
+
+### Clinical traits
+
+We correlated secondary major adverse clinical events (MACE) to gene expression.
+
+**Figure 5: genes of interest plotted over MACE**
+
+```{r boxplot_epmajor, fig.height = 10, fig.width = 5}
+
+
+for(GENE in target_genes){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.30days))
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "epmajor.30days",
+                          y = "expression_value",
+                          color = "epmajor.30days",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 0.1, jitter = 0.2),
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+
+for(GENE in target_genes){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.3years))
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "epmajor.3years",
+                          y = "expression_value",
+                          color = "epmajor.3years",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 0.1, jitter = 0.2),
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
+
+
+#### Statistical testing: non-parametric test
+
+Since we have multiple groups, while data and residuals are not normally distributed, we need to use a Kruskal-Wallis test. The assumptions here are independent samples (yes), and homoscedasticity (yes). No assumption that the data or residuals have a known distribution.
+
+```{r kruskal_wallis_all}
+var_pairs <- crossing(target_genes_qc, c(plaque_phenotypes_cat, "epmajor.3years")) %>%
+  setNames(c("genes", "variables"))
+
+d <- expression_wide %>%
+  dplyr::select(target_genes_qc, plaque_phenotypes_cat, epmajor.3years)
+
+kw_results <- var_pairs %>%
+  dplyr::mutate(r.test = purrr::map2(genes, variables, ~ stats::kruskal.test(d[[.x]], d[[.y]])),
+                r.test = purrr::map(r.test, broom::tidy)) %>%
+  tidyr::unnest(r.test) %>%
+  mutate(padj = p.adjust(p.value, method = "holm"))
+
+DT::datatable(kw_results)
+
+fwrite(kw_results, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.gene_vs_plaque_clin_traits.txt"))
+
+
+```
+
+
+### plaque phenotypes: numerical variables
+
+**Figure 6: genes of interest plotted over plaque phenotype numbers**
+```{r corr_plots, fig.width = 10, fig.height = 7}
+
+for(GENE in target_genes_qc){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long_num, symbol == GENE)
+  p1 <- ggpubr::ggscatter(temp,
+                          x = "value",
+                          y = "expression_value",
+                          color = "plaque_phenotype",
+                          palette = "npg",
+                          facet.by = "plaque_phenotype",
+                          add = "reg.line",
+                          add.params = list(linetype = "dotted", color = uithof_color[30]), 
+                          conf.int = TRUE, 
+                          cor.coef = TRUE, cor.method = "spearman", 
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  
+  print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.png"), plot = last_plot())
+  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+
+```
+
+#### Statistical testing: correlation
+
+If we calculate the correlation coefficients and corresponding p-values for these correlations, we get the following dataframe. Correlation method used in this case is Spearman's, since the genes in most case are not nicely normally distributed.
+```{r linear_corr_spearman_est}
+var_pairs <- crossing(target_genes_qc, plaque_phenotypes_num) %>%
+  setNames(c("genes", "plaque_phenotype"))
+
+d <- expression_wide %>%
+  dplyr::select(target_genes_qc, plaque_phenotypes_num)
+
+corr_results <- var_pairs %>%
+  dplyr::mutate(r.test = purrr::map2(genes, plaque_phenotype, ~ stats::cor.test(d[[.x]], d[[.y]], method = "spearman")),
+                r.test = purrr::map(r.test, broom::tidy)) %>%
+  tidyr::unnest(r.test) %>%
+  mutate(padj = p.adjust(p.value, method = "holm"))
+
+DT::datatable(corr_results)
+
+DT::datatable(kw_results)
+
+fwrite(corr_results, file = paste0(OUT_loc,"/",Today,".results.spearman.gene_vs_plaque_clin_traits.txt"))
+
+```
+
+### Heatmaps for plaque phenotypes, secondary events, and genes of interest
+If we would put these correlations in one simple and comprehensible figure, we could use a correlation heatmap. Again, correlation coefficients used here are Spearman's. Note that this heatmap only contains n = 595, while neutrophils and mast cells are excluded as variables (low sample sizes). This is due to missing values (see Figure 6).
+
+Note that we removed _DUPD1_ given that it's standard deviation = 0. 
+
+**Figure 7: correlation heatmap between expression of plaque phenotypes, secondary events (epmajor), and genes of interest**
+```{r heatmap_corr, fig.height = 6, fig.width = 7}
+library(tidyverse)
+library(magrittr)
+
+temp <- expression_wide %>%
+  column_to_rownames("study_number") %>%
+  dplyr::select(MAC_rankNorm, SMC_rankNorm, VesselDensity_rankNorm, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
+  drop_na() %>% # drop NA 
+  Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+
+temp.cor <- cor(temp, method = "spearman") 
+
+pheatmap(data.matrix(temp.cor), 
+         scale = "none",
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE,
+         fontsize = 7)
+
+
+```
+
+
+
+# Session information
+
+------
+
+    Version:      v1.0.0
+    Last update:  2020-06-30
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
+    Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
+    
+    Change log
+    * v1.0.0 Initial version
+
+------
+
+```{r eval = TRUE}
+sessionInfo()
+```
+
+# Saving environment
+```{r Saving}
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".results.RData"))
+```
+
+------
+<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+------
+
