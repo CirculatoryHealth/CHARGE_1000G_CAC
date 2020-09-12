@@ -67,6 +67,8 @@ PLINK_loc=paste0(ROOT_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
+
+# use this if there is relevant information here.
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
@@ -98,6 +100,11 @@ ifelse(!dir.exists(file.path(ANALYSIS_loc, "/BASELINE")),
        dir.create(file.path(ANALYSIS_loc, "/BASELINE")), 
        FALSE)
 BASELINE_loc = paste0(ANALYSIS_loc, "/BASELINE")
+
+ifelse(!dir.exists(file.path(PROJECT_loc, "/SNP")), 
+       dir.create(file.path(PROJECT_loc, "/SNP")), 
+       FALSE)
+SNP_loc = paste0(PROJECT_loc, "/SNP")
 
 setwd(paste0(PROJECT_loc))
 getwd()
@@ -256,14 +263,14 @@ Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (
 ```{r CAC targets}
 library(openxlsx)
 
-CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
 
-CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
+variant_list <- read.xlsx(paste0(TARGET_loc, "/CandidateSNPsforSander.xlsx"))
 
 
-DT::datatable(CAC_gene_list)
+DT::datatable(gene_list)
 
-DT::datatable(CAC_variants)
+DT::datatable(variant_list)
 
 ```
 
@@ -271,8 +278,8 @@ We will construct a list of genes to map to our scRNAseq data.
 
 ```{r CAC targets for mapping}
 
-CAC_target_genes <- unlist(CAC_gene_list$symbol)
-CAC_target_genes
+target_genes <- unlist(gene_list$symbol)
+target_genes
 ```
 
 
@@ -383,7 +390,8 @@ cat("* get Athero-Express Biobank Study Database...")
 #            
 require(haven)
 
-AEDB <- haven::read_sav(paste0(AEDB_loc, "/2019-3NEW_AtheroExpressDatabase_ScientificAE_02072019_IC_added.sav"))
+# AEDB <- haven::read_sav(paste0(AEDB_loc, "/2019-3NEW_AtheroExpressDatabase_ScientificAE_02072019_IC_added.sav"))
+AEDB <- haven::read_sav(paste0(AEDB_loc, "/2020_1_NEW_AtheroExpressDatabase_ScientificAE_16-03-2020.sav"))
 
 # writing off the SPSS data to an Excel.
 # fwrite(AEdata, file = paste0(INP_loc,"/2017-1NEW_AtheroExpressDatabase_ScientificAE_20171306_v1.0.values.xlsx"), 
@@ -403,8 +411,25 @@ dim(AEGS123.sampleList.keytable)
 
 ```
 
+#### Examine AEDB
 
-## Fixing and creating variables
+We can examine the contents of the Athero-Express Biobank dataset to know what each variable is called, what class (type) it has, and what the variable description is. 
+
+There is an excellent post on this: https://www.r-bloggers.com/working-with-spss-labels-in-r/. 
+```{r AEDB: describe}
+AEDB %>% sjPlot::view_df(show.type = TRUE,
+                         show.frq = TRUE,
+                         show.prc = TRUE,
+                         show.na = TRUE, 
+                         max.len = TRUE, 
+                         wrap.labels = 20,
+                         verbose = FALSE, 
+                         use.viewer = FALSE,
+                         file = paste0(OUT_loc, "/", Today, ".AEDB.dictionary.html")) 
+```
+
+
+### Fix clinical data
 
 We need to be very strict in defining _symptoms._ Therefore we will fix a new variable that groups _symptoms_ at inclusion.
 
@@ -429,7 +454,7 @@ Coding of _symptoms_ is as follows:
 - subclavian steal syndrome	16	
 - TGA	17
 
-We will group as follows in `Symptoms.5G`:
+We will group as follows:
 
 1. Asymptomatic > 0
 2. TIA > 1, 7, 13
@@ -438,35 +463,20 @@ We will group as follows in `Symptoms.5G`:
 5. Retinal infarction > 8, 11
 6. Other > 5, 9, 10, 12, 16, 17
 
-We will also group as follows in `AsymptSympt`:
 
-1. Asymptomatic > 0
-2. TIA > 1, 7, 13 + Stroke > 2, 3 
-3. Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
+```{r FixSymptoms}
 
-We will also group as follows in `AsymptSympt2G`:
-
-1. Asymptomatic > 0
-2. TIA > 1, 7, 13 + Stroke > 2, 3 Ocular > 4, 14, 15 + Retinal infarction > 8, 11 + Other > 5, 9, 10, 12, 16, 17
-
-
-```{r FixSymptoms, message=FALSE, warning=FALSE}
 # Fix symptoms
 
 attach(AEDB)
-
-AEDB$sympt[is.na(AEDB$sympt)] <- -999
-
-# Symptoms.5G
 AEDB[,"Symptoms.5G"] <- NA
-# AEDB$Symptoms.5G[sympt == "NA"] <- "Asymptomatic"
-AEDB$Symptoms.5G[sympt == -999] <- NA
 AEDB$Symptoms.5G[sympt == 0] <- "Asymptomatic"
 AEDB$Symptoms.5G[sympt == 1 | sympt == 7 | sympt == 13] <- "TIA"
 AEDB$Symptoms.5G[sympt == 2 | sympt == 3] <- "Stroke"
 AEDB$Symptoms.5G[sympt == 4 | sympt == 14 | sympt == 15 ] <- "Ocular"
 AEDB$Symptoms.5G[sympt == 8 | sympt == 11] <- "Retinal infarction"
 AEDB$Symptoms.5G[sympt == 5 | sympt == 9 | sympt == 10 | sympt == 12 | sympt == 16 | sympt == 17] <- "Other"
+
 
 # AsymptSympt
 AEDB[,"AsymptSympt"] <- NA
@@ -502,7 +512,6 @@ table(AEDB$AsymptSympt2G, AEDB$Symptoms.5G, useNA = "ifany")
 # table(AEDB.temp$Symptoms.5G, AEDB.temp$AsymptSympt)
 # 
 # rm(AEDB.temp)
-
 ```
 
 We will also fix the _plaquephenotypes_ variable.  
@@ -516,7 +525,7 @@ Coding of symptoms is as follows:
 - atheromatous	3	
 
 
-```{r FixPlaquePhenotypes, message=FALSE, warning=FALSE}
+```{r FixPlaquePhenotypes}
 
 # Fix plaquephenotypes
 attach(AEDB)
@@ -527,8 +536,6 @@ AEDB$OverallPlaquePhenotype[plaquephenotype == 1] <- "fibrous"
 AEDB$OverallPlaquePhenotype[plaquephenotype == 2] <- "fibroatheromatous"
 AEDB$OverallPlaquePhenotype[plaquephenotype == 3] <- "atheromatous"
 detach(AEDB)
-
-table(AEDB$OverallPlaquePhenotype)
 
 # AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "plaquephenotype", "OverallPlaquePhenotype"))
 # require(labelled)
@@ -542,9 +549,10 @@ table(AEDB$OverallPlaquePhenotype)
 
 ```
 
-We will also fix the _diabetes_ status variable. We define diabetes as history of a diagnosis and/or use of glucose-lowering medications.
+We will also fix the _diabetes_ status variable.
 
-```{r FixDiabetes, message=FALSE, warning=FALSE}
+```{r FixDiabetes}
+
 # Fix diabetes
 attach(AEDB)
 AEDB[,"DiabetesStatus"] <- NA
@@ -552,11 +560,6 @@ AEDB$DiabetesStatus[DM.composite == -999] <- NA
 AEDB$DiabetesStatus[DM.composite == 0] <- "Control (no Diabetes Dx/Med)"
 AEDB$DiabetesStatus[DM.composite == 1] <- "Diabetes"
 detach(AEDB)
-
-table(AEDB$DM.composite)
-
-table(AEDB$DiabetesStatus)
-
 
 # AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "DM.composite", "DiabetesStatus"))
 # require(labelled)
@@ -585,7 +588,7 @@ We already have some variables indicating smoking status:
 
 
 
-```{r FixSmoking, message=FALSE, warning=FALSE}
+```{r FixSmoking}
 require(labelled)
 AEDB$diet801 <- to_factor(AEDB$diet801)
 AEDB$diet802 <- to_factor(AEDB$diet802)
@@ -647,7 +650,7 @@ table(AEDB$SmokerStatus, AEDB$SmokerCurrent,
 We will also fix the _alcohol_ status variable.
 
 
-```{r FixAlcohol, message=FALSE, warning=FALSE}
+```{r FixAlcohol}
 
 # Fix diabetes
 attach(AEDB)
@@ -657,8 +660,6 @@ AEDB$AlcoholUse[diet810 == 0] <- "No"
 AEDB$AlcoholUse[diet810 == 1] <- "Yes"
 detach(AEDB)
 
-table(AEDB$AlcoholUse)
-
 # AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
 # require(labelled)
 # AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
@@ -673,40 +674,263 @@ table(AEDB$AlcoholUse)
 
 ```
 
-We will also fix a history of CAD, stroke or peripheral intervention status variable. This will be based on `CAD_history`, `Stroke_history`, and `Peripheral.interv`
 
-```{r FixCAD_History, message=FALSE, warning=FALSE}
+We will also fix and inverse-rank normal transform the continuous (manually) scored plaque phenotypes.
 
-# Fix diabetes
+```{r IRNT PlaquePhenotypes}
+AEDB$macmean0 <- as.numeric(AEDB$macmean0)
+AEDB$smcmean0 <- as.numeric(AEDB$smcmean0)
+AEDB$neutrophils <- as.numeric(AEDB$neutrophils)
+AEDB$Mast_cells_plaque <- as.numeric(AEDB$Mast_cells_plaque)
+AEDB$vessel_density_averaged <- as.numeric(AEDB$vessel_density_averaged)
+
+AEDB$MAC_rankNorm <- qnorm((rank(AEDB$macmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$macmean0)))
+AEDB$SMC_rankNorm <- qnorm((rank(AEDB$smcmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$smcmean0)))
+AEDB$Neutrophils_rankNorm <- qnorm((rank(AEDB$neutrophils, na.last = "keep") - 0.5) / sum(!is.na(AEDB$neutrophils)))
+AEDB$MastCells_rankNorm <- qnorm((rank(AEDB$Mast_cells_plaque, na.last = "keep") - 0.5) / sum(!is.na(AEDB$Mast_cells_plaque)))
+AEDB$VesselDensity_rankNorm <- qnorm((rank(AEDB$vessel_density_averaged, na.last = "keep") - 0.5) / sum(!is.na(AEDB$vessel_density_averaged)))
+
+```
+
+
+```{r IRNT PlaquePhenotypes: Visualisation}
+library(labelled)
+AEDB$Gender <- to_factor(AEDB$Gender)
+ggpubr::gghistogram(AEDB, "macmean0", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "% of macrophages (CD68)",
+                    xlab = "% per region of interest", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "MAC_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "% of macrophages (CD68)",
+                   xlab = "% per region of interest\ninverse-rank normalized number", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "smcmean0", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "% of smooth muscle cells (SMA)",
+                    xlab = "% per region of interest", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "SMC_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "% of smooth muscle cells (SMA)",
+                   xlab = "% per region of interest\ninverse-rank normalized number", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "neutrophils", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of neutrophils (CD66b)",
+                    xlab = "counts per plaque", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "Neutrophils_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of neutrophils (CD66b)",
+                   xlab = "counts per plaque\ninverse-rank normalized number", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "Mast_cells_plaque", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of mast cells",
+                    xlab = "counts per plaque", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "MastCells_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of mast cells",
+                   xlab = "counts per plaque\ninverse-rank normalized number", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "vessel_density_averaged", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of intraplaque neovessels",
+                    xlab = "counts per 3-4 hotspots", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "VesselDensity_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "number of intraplaque neovessels",
+                   xlab = "counts per 3-4 hotspots\ninverse-rank normalized number", 
+                    ggtheme = theme_minimal())
+```
+
+
+
+Here we calculate the _plaque instability/vulnerability_ index
+
+```{r Plaque Vulnerability}
+# Plaque vulnerability
+require(labelled)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+
+table(AEDB$Macrophages.bin)
+table(AEDB$Fat.bin_10)
+table(AEDB$Collagen.bin)
+table(AEDB$SMC.bin)
+table(AEDB$IPH.bin)
+
+# SPSS code
+
+# 
+# *** syntax- Plaque vulnerability**.
+# COMPUTE Macro_instab = -999.
+# IF macrophages.bin=2 Macro_instab=1.
+# IF macrophages.bin=1 Macro_instab=0.
+# EXECUTE.
+# 
+# COMPUTE Fat10_instab = -999.
+# IF Fat.bin_10=2 Fat10_instab=1.
+# IF Fat.bin_10=1 Fat10_instab=0.
+# EXECUTE.
+# 
+# COMPUTE coll_instab=-999.
+# IF Collagen.bin=2 coll_instab=0.
+# IF Collagen.bin=1 coll_instab=1.
+# EXECUTE.
+# 
+# 
+# COMPUTE SMC_instab=-999.
+# IF SMC.bin=2 SMC_instab=0.
+# IF SMC.bin=1 SMC_instab=1.
+# EXECUTE.
+# 
+# COMPUTE IPH_instab=-999.
+# IF IPH.bin=0 IPH_instab=0.
+# IF IPH.bin=1 IPH_instab=1.
+# EXECUTE.
+# 
+# COMPUTE Instability=Macro_instab + Fat10_instab +  coll_instab + SMC_instab + IPH_instab.
+# EXECUTE.
+
+# Fix plaquephenotypes
 attach(AEDB)
-AEDB[,"MedHx_CVD"] <- NA
-AEDB$MedHx_CVD[CAD_history == 0 | Stroke_history == 0 | Peripheral.interv == 0] <- "No"
-AEDB$MedHx_CVD[CAD_history == 1 | Stroke_history == 1 | Peripheral.interv == 1] <- "yes"
+# mac instability
+AEDB[,"MAC_Instability"] <- NA
+AEDB$MAC_Instability[Macrophages.bin == -999] <- NA
+AEDB$MAC_Instability[Macrophages.bin == "no/minor"] <- 0
+AEDB$MAC_Instability[Macrophages.bin == "moderate/heavy"] <- 1
+
+# fat instability
+AEDB[,"FAT10_Instability"] <- NA
+AEDB$FAT10_Instability[Fat.bin_10 == -999] <- NA
+AEDB$FAT10_Instability[Fat.bin_10 == " <10%"] <- 0
+AEDB$FAT10_Instability[Fat.bin_10 == " >10%"] <- 1
+
+# col instability 
+AEDB[,"COL_Instability"] <- NA
+AEDB$COL_Instability[Collagen.bin == -999] <- NA
+AEDB$COL_Instability[Collagen.bin == "no/minor"] <- 1
+AEDB$COL_Instability[Collagen.bin == "moderate/heavy"] <- 0
+
+# smc instability
+AEDB[,"SMC_Instability"] <- NA
+AEDB$SMC_Instability[SMC.bin == -999] <- NA
+AEDB$SMC_Instability[SMC.bin == "no/minor"] <- 1
+AEDB$SMC_Instability[SMC.bin == "moderate/heavy"] <- 0
+
+# iph instability
+AEDB[,"IPH_Instability"] <- NA
+AEDB$IPH_Instability[IPH.bin == -999] <- NA
+AEDB$IPH_Instability[IPH.bin == "no"] <- 0
+AEDB$IPH_Instability[IPH.bin == "yes"] <- 1
+
 detach(AEDB)
 
-table(AEDB$CAD_history)
-table(AEDB$Stroke_history)
-table(AEDB$Peripheral.interv)
-table(AEDB$MedHx_CVD)
+table(AEDB$MAC_Instability, useNA = "ifany")
+table(AEDB$FAT10_Instability, useNA = "ifany")
+table(AEDB$COL_Instability, useNA = "ifany")
+table(AEDB$SMC_Instability, useNA = "ifany")
+table(AEDB$IPH_Instability, useNA = "ifany")
 
-# AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "diet810", "AlcoholUse"))
-# require(labelled)
-# AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
-# AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
-# AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
-# AEDB.temp$AlcoholUse <- to_factor(AEDB.temp$AlcoholUse)
-# 
-# DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
-# 
-# rm(AEDB.temp)
+# creating vulnerability index
+AEDB <- AEDB %>% mutate(Plaque_Vulnerability_Index = factor(rowSums(.[grep("_Instability", names(.))], na.rm = TRUE)),
+                                )
 
+table(AEDB$Plaque_Vulnerability_Index, useNA = "ifany")
+
+# str(AEDB$Plaque_Vulnerability_Index)
 
 ```
-
-
-# Athero-Express Biobank Study
-
-## Baseline characteristics
+### Prepare baseline characteristics
 
 We are interested in the following variables at baseline.
 
@@ -735,9 +959,82 @@ We are interested in the following variables at baseline.
   - TIA
   - Stroke
 - eGFR (mL/min/1.73 m²)
+- stenosis
+- year of surgery
+- plaque characteristics
+- PCSK9
+
+### Fix things for `r TRAIT_OF_INTEREST`
+
+For this project we also fix the `r TRAIT_OF_INTEREST` levels for analyses. 
+
+> Measurement:
+> This was measured in citrate plasma, at pg/mL using a LUMINEX assay.
+
+```{r FixHormones}
+
+# Fix hormones
+attach(AEDB)
+AEDB[,"Plasma_PCSK9"] <- NA
+AEDB$Plasma_PCSK9 <- as.numeric(AEDB$PCSK9_plasma)
+AEDB$Plasma_PCSK9[PCSK9_plasma == -999] <- NA
+AEDB$Plasma_PCSK9[PCSK9_plasma == -888] <- NA
+AEDB$Plasma_PCSK9[PCSK9_plasma == -777] <- NA
+AEDB$Plasma_PCSK9[PCSK9_plasma == -666] <- NA
+
+detach(AEDB)
+
+AEDB$Plasma_PCSK9_rankNorm <- qnorm((rank(AEDB$PCSK9_plasma, na.last = "keep") - 0.5) / sum(!is.na(AEDB$PCSK9_plasma)))
+
+AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "PCSK9_plasma", "Plasma_PCSK9", "Plasma_PCSK9_rankNorm"))
+require(labelled)
+AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
+AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
+AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
+
+DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
+
+rm(AEDB.temp)
 
 
-```{r Baseline AEDB: creation, include = FALSE}
+```
+
+
+```{r IRNT Hormones: Visualisation}
+library(labelled)
+AEDB$Gender <- to_factor(AEDB$Gender)
+AEDB$PCSK9_plasma <- as.numeric(AEDB$PCSK9_plasma)
+
+ggpubr::gghistogram(AEDB, "Plasma_PCSK9", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median",
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "PCSK9 (citrate-plasma)",
+                    xlab = "pg/mL", 
+                    ggtheme = theme_minimal())
+
+ggpubr::gghistogram(AEDB, "Plasma_PCSK9_rankNorm", 
+                    # y = "..count..", 
+                    color = "white",
+                    fill = "Gender",
+                    palette = c("#1290D9", "#DB003F"), 
+                    add = "median", 
+                    #add_density = TRUE,
+                    rug = TRUE,
+                    #add.params =  list(color = "black", linetype = 2), 
+                    title = "PCSK9 (citrate-plasma)",
+                    xlab = "pg/mL\ninverse-rank normalized", 
+                    ggtheme = theme_minimal())
+
+```
+
+
+```{r Baseline AEDB: preparation}
 cat("====================================================================================================\n")
 cat("SELECTION THE SHIZZLE\n")
 
@@ -800,14 +1097,14 @@ cat("SELECTION THE SHIZZLE\n")
 
 cat("- sanity checking PRIOR to selection")
 library(data.table)
-ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
-ae.hospital <- ifelse(AEDB$Hospital == 1, "Antonius", "UMCU")
+require(labelled)
+ae.gender <- to_factor(AEDB$Gender)
+ae.hospital <- to_factor(AEDB$Hospital)
 table(ae.gender, ae.hospital, dnn = c("Sex", "Hospital"))
-ae.gender <- ifelse(AEDB$Gender == 0, "Female", "Male")
-table(ae.gender, AEDB$Artery_summary, dnn = c("Sex", "Artery"))
-# table(ae.gender, AEDB$informedconsent, dnn = c("Sex", "IC"))
+ae.artery <- to_factor(AEDB$Artery_summary)
+table(ae.artery, ae.gender, dnn = c("Sex", "Artery"))
 
-rm(ae.gender, ae.hospital)
+rm(ae.gender, ae.hospital, ae.artery)
 
 # I change numeric and factors manually because, well, I wouldn't know how to fix it otherwise
 # to have this 'tibble' work with 'tableone'... :-)
@@ -832,19 +1129,7 @@ AEDB$BMI <- as.numeric(AEDB$BMI)
 AEDB$eCigarettes <- as.numeric(AEDB$eCigarettes)
 AEDB$ePackYearsSmoking <- as.numeric(AEDB$ePackYearsSmoking)
 AEDB$EP_composite_time <- as.numeric(AEDB$EP_composite_time)
-
-AEDB$macmean0 <- as.numeric(AEDB$macmean0)
-AEDB$smcmean0 <- as.numeric(AEDB$smcmean0)
-AEDB$neutrophils <- as.numeric(AEDB$neutrophils)
-AEDB$Mast_cells_plaque <- as.numeric(AEDB$Mast_cells_plaque)
-AEDB$vessel_density_averaged <- as.numeric(AEDB$vessel_density_averaged)
-
-AEDB$MAC_rankNorm <- qnorm((rank(AEDB$macmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$macmean0)))
-AEDB$SMC_rankNorm <- qnorm((rank(AEDB$smcmean0, na.last = "keep") - 0.5) / sum(!is.na(AEDB$smcmean0)))
-AEDB$Neutrophils_rankNorm <- qnorm((rank(AEDB$neutrophils, na.last = "keep") - 0.5) / sum(!is.na(AEDB$neutrophils)))
-AEDB$MastCells_rankNorm <- qnorm((rank(AEDB$Mast_cells_plaque, na.last = "keep") - 0.5) / sum(!is.na(AEDB$Mast_cells_plaque)))
-AEDB$VesselDensity_rankNorm <- qnorm((rank(AEDB$vessel_density_averaged, na.last = "keep") - 0.5) / sum(!is.na(AEDB$vessel_density_averaged)))
-
+AEDB$EP_major_time <- as.numeric(AEDB$EP_major_time)
 
 require(labelled)
 AEDB$ORyear <- to_factor(AEDB$ORyear)
@@ -869,8 +1154,6 @@ AEDB$Stroke_Dx <- to_factor(AEDB$Stroke_Dx)
 AEDB$CAD_history <- to_factor(AEDB$CAD_history)
 AEDB$PAOD <- to_factor(AEDB$PAOD)
 AEDB$Peripheral.interv <- to_factor(AEDB$Peripheral.interv)
-AEDB$MedHx_CVD <- to_factor(AEDB$MedHx_CVD)
-
 
 AEDB$sympt <- to_factor(AEDB$sympt)
 AEDB$Symptoms.3g <- to_factor(AEDB$Symptoms.3g)
@@ -879,10 +1162,10 @@ AEDB$Symptoms.5G <- to_factor(AEDB$Symptoms.5G)
 AEDB$AsymptSympt <- to_factor(AEDB$AsymptSympt)
 AEDB$AsymptSympt2G <- to_factor(AEDB$AsymptSympt2G)
 
-
 AEDB$restenos <- to_factor(AEDB$restenos)
 AEDB$stenose <- to_factor(AEDB$stenose)
 AEDB$EP_composite <- to_factor(AEDB$EP_composite)
+AEDB$EP_major <- to_factor(AEDB$EP_major)
 AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
 AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
 AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
@@ -891,6 +1174,7 @@ AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
 AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
 AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
 AEDB$OverallPlaquePhenotype <- to_factor(AEDB$OverallPlaquePhenotype)
+AEDB$Plaque_Vulnerability_Index <- to_factor(AEDB$Plaque_Vulnerability_Index)
 
 AEDB$Artery_summary <- to_factor(AEDB$Artery_summary)
 
@@ -918,7 +1202,8 @@ AEDB.CEA <- subset(AEDB,
                        informedconsent != "yes, no medical info, health treatment when possible" &
                        informedconsent != "no (never asked for IC because there was no tissue)" &
                        informedconsent != "no, endpoint" &
-                       informedconsent != "nooit geincludeerd")
+                       informedconsent != "nooit geincludeerd" & 
+                     !is.na(AsymptSympt2G))
 # AEDB.CEA[1:10, 1:10]
 dim(AEDB.CEA)
 
@@ -949,31 +1234,33 @@ dim(AEDB.full)
 
 ```
 
-```{r}
+
+```{r Baseline AEDB: creation}
 cat("===========================================================================================\n")
 cat("CREATE BASELINE TABLE\n")
 
 # Baseline table variables
 basetable_vars = c("Hospital", "ORyear",
                    "Age", "Gender", 
-                   "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
+                   # "TC_finalCU", "LDL_finalCU", "HDL_finalCU", "TG_finalCU", 
                    "TC_final", "LDL_final", "HDL_final", "TG_final", 
+                   # "hsCRP_plasma",
                    "systolic", "diastoli", "GFR_MDRD", "BMI", 
                    "KDOQI", "BMI_WHO",
                    "SmokerStatus", "AlcoholUse",
                    "DiabetesStatus", 
                    "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
                    "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
-                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                   "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
                    "restenos", "stenose",
-                   "MedHx_CVD", "CAD_history", "PAOD", "Peripheral.interv", 
-                   "EP_composite", "EP_composite_time",
-                   "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin",
-                   "neutrophils", "Mast_cells_plaque",
-                   "IPH.bin", "vessel_density_averaged",
+                   "CAD_history", "PAOD", "Peripheral.interv", 
+                   "EP_composite", "EP_composite_time", "EP_major", "EP_major_time",
+                   "MAC_rankNorm", "SMC_rankNorm", "Macrophages.bin", "SMC.bin",
+                   "Neutrophils_rankNorm", "MastCells_rankNorm",
+                   "IPH.bin", "VesselDensity_rankNorm",
                    "Calc.bin", "Collagen.bin", 
-                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype",
-                   "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
+                   "Plasma_PCSK9", "Plasma_PCSK9_rankNorm")
 
 basetable_bin = c("Gender", 
                   "KDOQI", "BMI_WHO",
@@ -981,19 +1268,20 @@ basetable_bin = c("Gender",
                   "DiabetesStatus", 
                   "Hypertension.selfreport", "Hypertension.selfreportdrug", "Hypertension.composite", "Hypertension.drugs", 
                   "Med.anticoagulants", "Med.all.antiplatelet", "Med.Statin.LLD", 
-                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", 
+                  "Stroke_Dx", "sympt", "Symptoms.5G", "AsymptSympt", "AsymptSympt2G",
                   "restenos", "stenose",
                   "CAD_history", "PAOD", "Peripheral.interv", 
                   "EP_composite", "Macrophages.bin", "SMC.bin",
                   "IPH.bin", 
                   "Calc.bin", "Collagen.bin", 
-                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype")
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index")
 # basetable_bin
 
 basetable_con = basetable_vars[!basetable_vars %in% basetable_bin]
 # basetable_con
 ```
 
+### Athero-Express Biobank Study: baseline characteristics
 Showing the baseline table of the whole Athero-Express Biobank.
 
 ```{r Baseline AEDB: Visualize AEDB}
@@ -1022,6 +1310,7 @@ AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars,
                           format = "pf", 
                           contDigits = 3)[,1:3]
 ```
+
 
 
 ## Athero-Express Genomics Study: prepare
@@ -1188,9 +1477,10 @@ basetable_vars = c("Hospital",
                    "macmean0", "smcmean0", "Macrophages.bin", "SMC.bin", "neutrophils", "Mast_cells_plaque", "vessel_density_averaged",
                    "IPH.bin", 
                    "Calc.bin", "Collagen.bin", 
-                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", 
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
                    "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
-                  "GWAS", "CHIP", "PCA")
+                  "GWAS", "CHIP", "PCA",
+                  "Plasma_PCSK9", "Plasma_PCSK9_rankNorm")
 
 basetable_bin = c("Gender", 
                   "KDOQI", "BMI_WHO", 
@@ -1201,7 +1491,7 @@ basetable_bin = c("Gender",
                   "EP_composite", "Macrophages.bin", "SMC.bin",
                   "IPH.bin", 
                   "Calc.bin", "Collagen.bin", 
-                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype",
+                  "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
                   "GWAS", "CHIP", "PCA")
 
 basetable_bin
@@ -1278,8 +1568,7 @@ temp <- subset(AEGS,
                           "Sex", "Age", "ORyear", 
                           "Calc.bin", "Collagen.bin", 
                           "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm", 
-                          "OverallPlaquePhenotype")) # Select some phenotype of interest
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")) # Select some phenotype of interest
 dim(temp)
 
 # Fix things
@@ -1329,8 +1618,7 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
                                   Sex, Age, ORyear, 
                                   Calcification, Collagen, 
                                   Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
-                                  OverallPlaquePhenotype)  %>%
+                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm)  %>%
   mutate_if(is.numeric, as.character) %>%
   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
   add_row(.before = 1, 
@@ -1342,13 +1630,12 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
           Sex = "D", Age = "C", ORyear = "C", 
           Calcification = "B", Collagen = "B", 
           Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
-          OverallPlaquePhenotype = "B") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
+          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
   print()
 dim(sample_file_aegs)
 
 fwrite(sample_file_aegs,
-       file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEGS123.sample"),
+       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.sample"),
        na = "NA", sep = "\t", quote = FALSE,
        row.names = FALSE, col.names = TRUE,
        showProgress = TRUE, verbose = TRUE)
@@ -1421,7 +1708,7 @@ AEGS123_AllChrQC_filtered <- subset(AEGS123_AllChr,
                           "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm"))
 
 fwrite(AEGS123_AllChrQC_reorder,
-       file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"),
+       file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"),
        na = "NA", sep = "\t", quote = FALSE,
        row.names = FALSE, col.names = TRUE,
        showProgress = TRUE, verbose = TRUE)
@@ -1432,17 +1719,62 @@ DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped 
 
 ```
 
+# GWASToolKit preparation
+
+## VariantLists
+
+Here we create a `variantlist.txt` file used by **GWASToolKit** for analysis.
+
+```{r create variantList}
+variant_list
+
+temp <- subset(variant_list, select = c("variantid", "chr", "pos"))
+
+fwrite(temp,
+       file = paste0(SNP_loc, "/variantlist.txt"),
+       na = "NA", sep = "\t", quote = FALSE,
+       row.names = FALSE, col.names = FALSE,
+       showProgress = TRUE, verbose = TRUE)
+rm(temp)
+```
+
+## Covariates
+
+Here we create a `covariates.txt` file used by **GWASToolKit** for analysis.
+
+```{r create covariatesList}
+library(tidyverse)
+# for 'overall' analyses
+c("Age Sex PC1 PC2 CHIP ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.txt"))
+
+# for sex-specific analyses
+c("Age PC1 PC2 CHIP ORyear") %>% write_lines(paste0(SNP_loc, "/covariates.sex.txt"))
+```
+
+## Phenotypes
+
+Here we create a `phenotypes.txt` file used by **GWASToolKit** for analysis.
+
+```{r create phenotypesList}
+library(tidyverse)
+c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm") %>% write_lines(paste0(SNP_loc, "/phenotypes.txt"))
+
+
+```
+
+
 # Session information
 
 ------
 
-    Version:      v1.0.1
-    Last update:  2020-06-18
+    Version:      v1.0.2
+    Last update:  2020-09-12
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
     * v1.0.1 Add an additional phenotype.
     * v1.0.0 Initial version. Fixed baseline table, added codes, and results. Created sample-files.
 
