@@ -56,7 +56,12 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
 **Figure 1: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
-![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20200625.TargetExpression_vs_1000genes.png)
+![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20201126.TargetExpression_vs_10000genes.png)
+
+
+**Figure 2: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
+![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20201126.correlations.target_genes.png)
+
 
 We assessed the correlation with plaque characteristics (mentioned above) and secondary major adverse cardiovascular events (MACE [major]) at 30 days and 3 years after CEA. 
 
@@ -64,17 +69,13 @@ We assessed the correlation with plaque characteristics (mentioned above) and se
 
 We projected target genes to the single-cell RNAseq data derived from 37 carotid plaque samples. We identified cell communities (Figure 2), mapped and projected target gene expression to the cell communities (Figure 3). 
 
-**Figure 2: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
+**Figure 3: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
 ![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20200617.UMAP.png)
 
 
-**Figure 3: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
+**Figure 4: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
 ![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20200617.DotPlot.Targets.png)
 
-
-### QTL mapping
-
-Quantitative trait loci mapping has not finished. This could be added at a later stage.
 
 
 --------------

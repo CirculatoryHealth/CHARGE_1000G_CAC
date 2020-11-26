@@ -50,7 +50,7 @@ GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
-RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
+AERNA_loc = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
 PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
@@ -114,7 +114,7 @@ install.packages.auto <- function(x) {
 ```
 
 _... and load those packages._
-```{r Setting: loading_packages, echo=FALSE}
+```{r Setting: loading_packages, echo=FALSE, message=FALSE, warning=FALSE}
 install.packages.auto("readr")
 install.packages.auto("optparse")
 install.packages.auto("tools")
@@ -133,7 +133,13 @@ install.packages.auto("tidyverse")
 install.packages.auto("knitr")
 install.packages.auto("DT")
 
+# for plotting
+install.packages.auto("qqman")
+install.packages.auto("forestplot")
 install.packages.auto("pheatmap")
+# for meta-analysis
+install.packages.auto("meta")
+install.packages.auto("bacon")
 
 install.packages.auto("reshape2")
 
@@ -147,12 +153,22 @@ install.packages.auto("tableone")
 # Install the devtools package from Hadley Wickham
 install.packages.auto('devtools')
 
+cat("\n* Genomic packages...\n")
+install.packages.auto("GenomicFeatures")
 install.packages.auto("GenomicRanges")
 install.packages.auto("SummarizedExperiment")
 install.packages.auto("DESeq2")
 install.packages.auto("org.Hs.eg.db")
 install.packages.auto("mygene")
+install.packages.auto("TxDb.Hsapiens.UCSC.hg19.knownGene")
+install.packages.auto("org.Hs.eg.db")
+install.packages.auto("AnnotationDbi")
+install.packages.auto("EnsDb.Hsapiens.v86")
 install.packages.auto("EnhancedVolcano")
+
+# CEMiTool
+# Ref: https://bioconductor.org/packages/release/bioc/vignettes/CEMiTool/inst/doc/CEMiTool.html
+install.packages.auto("CEMiTool")
 
 
 ```
@@ -252,7 +268,6 @@ CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
 
 CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
 
-
 DT::datatable(CAC_gene_list)
 
 DT::datatable(CAC_variants)
@@ -272,10 +287,10 @@ target_genes = CAC_target_genes
 # Load data
 First we will load the data:
 
-- scRNAseq experimental data and rename the cell types.
+- bulk RNA sequencing (RNAseq) experimental data from carotid plaques
 - Athero-Express clinical data.
 
-## AERNA: bulk RNAseq from carotid plaques
+## Bulk RNAseq data
 
 Here we load the latest dataset from our Athero-Express bulk RNA experiment d.d. 2019-12-11 mapped to b37 and Ensembl 87. 
 
@@ -287,10 +302,10 @@ These bulk RNAseq data are filtered and corrected:
 
 ```{r LoadData}
 # bulk RNAseq data
-bulkRNA_counts <- fread(paste0(RAWDATA,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_raw_counts_UMIcorr_weird_genes_filtered.txt"))
+bulkRNA_counts <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_raw_counts_UMIcorr_weird_genes_filtered.txt"))
 
 # batch information
-bulkRNA_meta <- fread(paste0(RAWDATA,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
+bulkRNA_meta <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
 
 ```
 
@@ -322,7 +337,7 @@ head(bulkRNA_meta)
 <!-- head(bulkRNA_meta) -->
 <!-- ``` -->
 
-## Athero-Express Biobank Study: clinical data
+## Clinical data
 
 Loading Athero-Express clinical data.
 ```{r LoadAEDB}
@@ -338,8 +353,8 @@ AEDB <- haven::read_sav(paste0(AEDB_loc, "/2020_1_NEW_AtheroExpressDatabase_Scie
 We will fix the `STUDY_NUMBER` to match the bulkRNAseq data.
 ```{r FixStudyNumber}
 
-AEDB$study_number <- paste0("ae", AEDB$STUDY_NUMBER)
-head(AEDB$study_number)
+AEDB$STUDY_NUMBER <- paste0("ae", AEDB$STUDY_NUMBER)
+head(AEDB$STUDY_NUMBER)
 
 ```
 
@@ -964,7 +979,7 @@ AEDB.CEA.tableOne = print(CreateTableOne(vars = basetable_vars,
 ```
 
 
-## AERNA: SummarizedExperiment()
+# AERNA: SummarizedExperiment()
 
 ### Tidy data
 
@@ -972,21 +987,82 @@ We have collected the clinical data, Athero-Express Biobank Study `AEDB` and, th
 
 Here we will clean up the data and create a `SummarizedExperiment()` object for downstream analyses anad visualizations. 
 
-```{r tidyCounts}
-bulkRNA_counts %<>%
-     drop_na(chr) %>%   # remove rows that have no information of start, end, chromosome and/or strand
-     dplyr::select(1:6, one_of(sort(bulkRNA_meta$study_number))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+```{r Parsing RNAseq, message=FALSE, warning=FALSE}
+AEDB.CEA.sampleList <- AEDB.CEA$STUDY_NUMBER
+# match up with meta data of RNAseq experiment
+bulkRNA_countsFilt <- bulkRNA_counts %>%
+  drop_na(chr) %>%   # remove rows that have no information of start, end, chromosome and/or strand
+  dplyr::select(1:6, one_of(sort(as.character(AEDB.CEA.sampleList)))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+dim(bulkRNA_countsFilt)
 
-# Cut up bulkRNA_counts into 'assay' and 'ranges' part
-counts <- as.data.frame(bulkRNA_counts[,-(1:6)])              ## assay part
-rownames(counts) <- bulkRNA_counts$ensembl_gene_id               ## assign rownames
-rowRanges <- GRanges(bulkRNA_counts$chr,					## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
-                     IRanges(bulkRNA_counts$start, bulkRNA_counts$end),
-                     strand = bulkRNA_counts$strand,
-                     feature_id = bulkRNA_counts$ensembl_gene_id) #, df$pid)
+study_samples_bulkNEW <- colnames(bulkRNA_counts[, -(1:6)])
+length(study_samples_bulkNEW)
+study_samples_AEDBCEA <- c(AEDB.CEA$STUDY_NUMBER)
+study_samples_AEDB <- c(AEDB$STUDY_NUMBER)
+
+setdif_samples_NEWvsAEDBCEA <- setdiff(study_samples_bulkNEW, study_samples_AEDBCEA)
+setdif_samples_NEWvsAEDB <- setdiff(study_samples_bulkNEW, study_samples_AEDB)
+setdif_samples_AEDBCEAvsNEW <- setdiff(study_samples_AEDBCEA, study_samples_bulkNEW)
+setdif_samples_AEDBvsNEW <- setdiff(study_samples_AEDB, study_samples_bulkNEW)
+
+AEDB_filt <- AEDB[AEDB$STUDY_NUMBER %in% setdif_samples_NEWvsAEDBCEA,]
+table(AEDB_filt$Artery_summary, AEDB_filt$Gender)
+
+# Cut up bulkRNA_countsFilt into 'assay' and 'ranges' part
+counts <- as.data.frame(bulkRNA_countsFilt[,-(1:6)])  ## assay part
+rownames(counts) <- bulkRNA_countsFilt$ensembl_gene_id  ## assign rownames
+
+bulkRNA_rowRanges <- GRanges(bulkRNA_countsFilt$chr,	 ## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
+                     IRanges(bulkRNA_countsFilt$start, bulkRNA_countsFilt$end),
+                     strand = bulkRNA_countsFilt$strand,
+                     feature_id = bulkRNA_countsFilt$ensembl_gene_id) #, df$pid)
+names(bulkRNA_rowRanges) <- bulkRNA_rowRanges$feature_id
+
+# ?org.Hs.eg.db
+# ?AnnotationDb
+
+bulkRNA_rowRanges$symbol <- mapIds(org.Hs.eg.db,
+                     keys = bulkRNA_rowRanges$feature_id,
+                     column = "SYMBOL",
+                     keytype = "ENSEMBL",
+                     multiVals = "first")
+
+# Reference: https://shiring.github.io/genome/2016/10/23/AnnotationDbi
+
+# gene dataframe for EnsDb.Hsapiens.v86
+gene_dataframe_EnsDb <- ensembldb::select(EnsDb.Hsapiens.v86, keys = bulkRNA_rowRanges$feature_id,
+                                          columns = c("ENTREZID", "SYMBOL", "GENEBIOTYPE"), keytype = "GENEID")
+colnames(gene_dataframe_EnsDb) <- c("Ensembl", "Entrez", "HGNC", "GENEBIOTYPE")
+colnames(gene_dataframe_EnsDb) <- paste(colnames(gene_dataframe_EnsDb), "EnsDb86", sep = "_")
+head(gene_dataframe_EnsDb)
+
+
+bulkRNA_rowRanges$GENEBIOTYPE_EnsDb86 <- gene_dataframe_EnsDb$GENEBIOTYPE_EnsDb86[match(bulkRNA_rowRanges$feature_id, gene_dataframe_EnsDb$Ensembl_EnsDb86)]
+bulkRNA_rowRanges
+
+# merging the two dataframes by HGNC
+# bulkRNA_rowRangesHg19Ensemblb86 <- GRanges(merge(bulkRNA_rowRanges, gene_dataframe_EnsDb, by.x = "feature_id", by.y = "Ensembl_EnsDb86", sort = FALSE, all.x = TRUE))
+# names(bulkRNA_rowRangesHg19Ensemblb86) <- bulkRNA_rowRangesHg19Ensemblb86$feature_id
+# bulkRNA_rowRangesHg19Ensemblb86
+
+# temp <- as.data.frame(table(bulkRNA_rowRanges$GENEBIOTYPE_EnsDb86))
+# colnames(temp) <- c("GeneBiotype", "Count")
+# 
+# ggpubr::ggbarplot(temp, x = "GeneBiotype", y = "Count",
+#                   color = "GeneBiotype", fill = "GeneBiotype",
+#                   xlab = "gene type") + 
+#   theme(axis.text.x = element_text(angle = 45))
+# rm(temp)
+
+```
+
+```{r Parse ClinicalData RNAseq}
+# match up with meta data of RNAseq experiment
+bulkRNA_meta %<>%
+     dplyr::filter(study_number %in% AEDB.CEA.sampleList) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
 
 # combine meta data from experiment with clinical data
-bulkRNA_meta_clin <- merge(bulkRNA_meta, AEDB, by.x = "study_number", by.y = "study_number",
+bulkRNA_meta_clin <- merge(bulkRNA_meta, AEDB.CEA, by.x = "study_number", by.y = "STUDY_NUMBER",
                            sort = FALSE, all.x = TRUE)
 
 bulkRNA_meta_clin %<>%
@@ -1004,6 +1080,44 @@ dim(bulkRNA_meta_clin)
 
 ```
 
+We make a `SummarizedExperiment` for the RNAseq data.
+
+```{r RNAseq to SE}
+cat("* loading data ...\n")
+
+# this is all the data passing RNAseq quality control
+# - includes 654 patients
+# - after filtering on informed consent and artery type, the end sample size should be 622
+dim(bulkRNA_countsFilt)
+
+cat("\n* making a SummarizedExperiment ...\n")
+cat("  > getting counts\n")
+head(counts)
+head(bulkRNA_countsFilt)
+
+cat("  > meta data\n")
+temp_coldat <- data.frame(STUDY_NUMBER = names(bulkRNA_countsFilt[,7:628]), 
+                          SampleType = "plaque", RNAseqType = "3' RNAseq", 
+                          row.names = names(bulkRNA_countsFilt[,7:628]))
+cat("  > clinical data\n")
+temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
+
+rownames(temp_coldat_clin) <- temp_coldat_clin$STUDY_NUMBER
+dim(temp_coldat_clin)
+
+cat("  > construction of the SE\n")
+(AERNASE <- SummarizedExperiment(assays = list(counts = as.matrix(counts)),
+                                colData = temp_coldat_clin, 
+                                rowRanges = bulkRNA_rowRanges,
+                                metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected"))
+
+cat("\n* removing intermediate files ...\n")
+# rm(temp, temp_coldat, temp_coldat_clin)
+
+```
+
+
+
 Do the study numbers correspond between metadata and expression data?
 ```{r matching_names}
 ## check whether rownames metadata and colnames counts are identical
@@ -1011,15 +1125,7 @@ all(rownames(bulkRNA_meta_clin) == colnames(counts))
 
 ```
 
-### SummarizedExperiment
 
-Here we create a container that brings all data together.
-```{r se}
-(AERNASE <- SummarizedExperiment(assays = list(counts = as.matrix(counts)),  ## as.matrix() is important here, to get dimnames the same (?) - see error below if you don't use this
-                            rowRanges = rowRanges, 
-                            colData = bulkRNA_meta_clin,
-                            metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused.")   )
-```
 
 So, now we have raw counts for all patients included in the bulk RNAseq data, with all clinical data annotated to them.
 
@@ -1029,6 +1135,7 @@ Some of the patients might be missing in certain variables:
 which(is.na(AERNASE$Gender)) 
 
 missing_values <- which(is.na(AERNASE$Gender))
+missing_values
 ```
 
 No need to remove missing samples based on a variable, since we will make a DESeq2 object using an empty model.
@@ -1053,6 +1160,7 @@ AERNAdds <- DESeqDataSet(AERNASE, design = ~ 1)
 
 # Determine the size factors to use for normalization
 AERNAdds <- estimateSizeFactors(AERNAdds)
+
 # sizeFactors(AERNAdds)
 
 # Extract the normalized counts
@@ -1062,10 +1170,20 @@ normalized_counts <- counts(AERNAdds, normalized = TRUE)
 # Log transform counts for QC
 AERNAvsd <- vst(AERNAdds, blind = TRUE)
 
+# There is a message stating the following.
+# 
+# -- note: fitType='parametric', but the dispersion trend was not well captured by the
+#    function: y = a/x + b, and a local regression fit was automatically substituted.
+#    specify fitType='local' or 'mean' to avoid this message next time.
+#    
+# No action is required. 
+# 
+# For more information check: https://www.biostars.org/p/119115/
 
 ```
 
 ## Extract data of interest
+
 From here, extract the gene expression values, plus gene identifier, annotate with gene symbol, and select the genes of our interest _`r CAC_target_genes`_.
 ```{r expression_data_selection}
 expression_data <- assay(AERNAvsd)
@@ -1087,15 +1205,15 @@ expression_data$symbol <- mapIds(org.Hs.eg.db,
 expression_data_sel <- expression_data %>%
      dplyr::select(gene_ensembl, symbol, everything()) %>%
      # filter(symbol == "APOE" | symbol == "TRIB3") %>% # filter APOE and TRIB3
-     filter(symbol %in% target_genes)
+     dplyr::filter(symbol %in% target_genes)
 
 head(expression_data_sel)
 
 # tidy and subset non-selected genes
-set.seed(1000)
+set.seed(141619)
 expression_data_sample <- expression_data %>%
      dplyr::select(gene_ensembl, symbol, everything()) %>%
-     sample_n(1000) %>%
+     sample_n(10000) %>%
      unite(symbol_ensembl, symbol, gene_ensembl, sep = "_", remove = FALSE)
 
 expression_data_sample_mean <- expression_data_sample %>%
@@ -1157,6 +1275,11 @@ head(expression_long)
 
 **Figure 1: Expression of genes of interest: boxplots**
 ```{r boxplots_expression}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Boxplots")), 
+       dir.create(file.path(QC_loc, "/Boxplots")), 
+       FALSE)
+BOX_loc = paste0(QC_loc,"/Boxplots")
 
 for(GENE in target_genes){
   cat(paste0("Plotting expression for ", GENE,".\n"))
@@ -1171,18 +1294,47 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
+  
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
 
 ```
 
+### Filter genes
+
+Based on the above graphs we can see that some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
+
+- AC011294.3
+- C9orf53 => CDKN2A-DT, not found
+- RP11-145E5.5
+- AL137026.1
+- PVRL2 => NECTIN2
+- C6orf195
+- DUPD1 ==> not found
+
+```{r filter target genes}
+target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "PVRL2", "C6orf195", "DUPD1")
+
+temp = target_genes[!target_genes %in% target_genes_rm]
+
+target_genes_qc <- c(temp)
+
+target_genes_qc
+```
+
+
 **Figure 2A: Expression of genes of interest: histograms**
 ```{r hist_expression}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Histograms")), 
+       dir.create(file.path(QC_loc, "/Histograms")), 
+       FALSE)
+HISTOGRAM_loc = paste0(QC_loc,"/Histograms")
 
-for(GENE in target_genes){
+for(GENE in target_genes_qc){
   # cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE)
   p1 <- ggpubr::gghistogram(temp,
@@ -1195,8 +1347,8 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
+  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
+  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1205,8 +1357,13 @@ for(GENE in target_genes){
 
 **Figure 2B: Expression of genes of interest: density plots**
 ```{r dens_expression}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Density")), 
+       dir.create(file.path(QC_loc, "/Density")), 
+       FALSE)
+DENSITY_loc = paste0(QC_loc,"/Density")
 
-for(GENE in target_genes){
+for(GENE in target_genes_qc){
   # cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE)
   p1 <- ggpubr::gghistogram(temp,
@@ -1219,8 +1376,8 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
+  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
+  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1228,25 +1385,10 @@ for(GENE in target_genes){
 ```
 
 
-## Compare expression to the expression of a sample of 1000 genes
-Based on the above graphs we can see that some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
+## Compare expression to the expression of a sample of 10,000 genes
 
-- AC011294.3
-- C9orf53 => CDKN2A-DT, not found
-- RP11-145E5.5
-- AL137026.1
-- PVRL2 => NECTIN2
-- C6orf195
-
-
-**Figure 3: comparing expression of genes of interest to mean expression of a 1000 random genes**
+**Figure 3: comparing expression of genes of interest to mean expression of a sample of 10,000 random genes**
 ```{r boxplots_expression_comparison, fig.width = 12}
-
-target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "PVRL2", "C6orf195")
-
-temp = target_genes[!target_genes %in% target_genes_rm]
-
-target_genes_qc <- c(temp)
 
 expression_wide <- expression_long %>%
   dplyr::select(-gene_ensembl) %>%
@@ -1261,8 +1403,8 @@ expression_wide2 <- expression_wide %>%
 
 expression_long2 <- expression_wide2 %>%
   gather(gene, expression_value, -study_number) %>%
-  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 1000 genes"))) %>%
-  mutate(gene = factor(gene, levels = c("Mean of 1000 genes", target_genes_qc)))
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 10,000 genes"))) %>%
+  mutate(gene = factor(gene, levels = c("Mean of 10,000 genes", target_genes_qc)))
 
 mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
 # head(expression_long2)
@@ -1279,8 +1421,8 @@ mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
     geom_hline(yintercept = mean_1000_genes, linetype = "dashed", color = uithof_color[26]) + 
     theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1, vjust = 1)) # change orientation of x-axis labels
   p1
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.png"), plot = last_plot())
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.pdf"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_10000genes.png"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_10000genes.pdf"), plot = last_plot())
   rm(p1 )
 
 
@@ -1309,8 +1451,13 @@ We correlated the categorical plaque characteristics to gene expression.
 
 **Figure 4: genes of interest plotted over plaque phenotype levels**
 ```{r boxplot_function, fig.width = 12, fig.height = 10}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/PlaquePhenotypes")), 
+       dir.create(file.path(QC_loc, "/PlaquePhenotypes")), 
+       FALSE)
+PLAQUEPHENO_loc = paste0(QC_loc,"/PlaquePhenotypes")
 
-for(GENE in target_genes){
+for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long_cat, symbol == GENE)
   p1 <- ggpubr::ggboxplot(temp,
@@ -1324,8 +1471,8 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
+  ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.png"), plot = last_plot())
+  ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1340,9 +1487,26 @@ We correlated secondary major adverse clinical events (MACE) to gene expression.
 **Figure 5: genes of interest plotted over MACE**
 
 ```{r boxplot_epmajor, fig.height = 10, fig.width = 5}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/ClinicalOutcome")), 
+       dir.create(file.path(QC_loc, "/ClinicalOutcome")), 
+       FALSE)
+CLINICALOUT_loc = paste0(QC_loc,"/ClinicalOutcome")
+
+# Make directory for plots
+ifelse(!dir.exists(file.path(CLINICALOUT_loc, "/30Days")), 
+       dir.create(file.path(CLINICALOUT_loc, "/30Days")), 
+       FALSE)
+CLINICAL30D_loc = paste0(CLINICALOUT_loc,"/30Days")
+
+# Make directory for plots
+ifelse(!dir.exists(file.path(CLINICALOUT_loc, "/3Years")), 
+       dir.create(file.path(CLINICALOUT_loc, "/3Years")), 
+       FALSE)
+CLINICAL3Y_loc = paste0(CLINICALOUT_loc,"/3Years")
 
 
-for(GENE in target_genes){
+for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.30days))
   p1 <- ggpubr::ggboxplot(temp,
@@ -1356,14 +1520,14 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
+  ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.png"), plot = last_plot())
+  ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
 
 
-for(GENE in target_genes){
+for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.3years))
   p1 <- ggpubr::ggboxplot(temp,
@@ -1377,8 +1541,8 @@ for(GENE in target_genes){
                           )
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
+  ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.png"), plot = last_plot())
+  ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1415,6 +1579,11 @@ fwrite(kw_results, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.gene
 
 **Figure 6: genes of interest plotted over plaque phenotype numbers**
 ```{r corr_plots, fig.width = 10, fig.height = 7}
+# Make directory for plots
+ifelse(!dir.exists(file.path(PLAQUEPHENO_loc, "/Correlations")), 
+       dir.create(file.path(PLAQUEPHENO_loc, "/Correlations")), 
+       FALSE)
+PLAQUEPHENOCOR_loc = paste0(PLAQUEPHENO_loc,"/Correlations")
 
 for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
@@ -1434,8 +1603,8 @@ for(GENE in target_genes_qc){
   
   print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.png"), plot = last_plot())
-  ggsave(filename = paste0(QC_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
+  ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.png"), plot = last_plot())
+  ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1461,13 +1630,12 @@ corr_results <- var_pairs %>%
 
 DT::datatable(corr_results)
 
-DT::datatable(kw_results)
-
 fwrite(corr_results, file = paste0(OUT_loc,"/",Today,".results.spearman.gene_vs_plaque_clin_traits.txt"))
 
 ```
 
 ### Heatmaps for plaque phenotypes, secondary events, and genes of interest
+
 If we would put these correlations in one simple and comprehensible figure, we could use a correlation heatmap. Again, correlation coefficients used here are Spearman's. Note that this heatmap only contains n = 595, while neutrophils and mast cells are excluded as variables (low sample sizes). This is due to missing values (see Figure 6).
 
 Note that we removed _DUPD1_ given that it's standard deviation = 0. 
@@ -1477,37 +1645,89 @@ Note that we removed _DUPD1_ given that it's standard deviation = 0.
 library(tidyverse)
 library(magrittr)
 
+# dplyr::select(MAC_rankNorm, SMC_rankNorm, VesselDensity_rankNorm, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
 temp <- expression_wide %>%
   column_to_rownames("study_number") %>%
-  dplyr::select(MAC_rankNorm, SMC_rankNorm, VesselDensity_rankNorm, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
+  dplyr::select(plaque_phenotypes_cat, plaque_phenotypes_num, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
+  drop_na() %>% # drop NA 
+  mutate(across(all_of(plaque_phenotypes_cat), as.numeric)) %>% # convert factors to numeric
+  Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+
+temp.cor <- cor(temp, method = "spearman") 
+
+p1 <- pheatmap(data.matrix(temp.cor), 
+               scale = "none",
+               cluster_rows = TRUE, 
+               cluster_cols = TRUE,
+               legend = TRUE,
+               fontsize = 7)
+
+p1 
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.pdf"), plot = p1)
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.png"), plot = p1)
+
+rm(temp, temp.cor, p1)
+
+```
+
+**Figure 8: correlation heatmap between expression of genes of interest**
+```{r heatmap_corr_genes, fig.height = 6, fig.width = 7}
+library(tidyverse)
+library(magrittr)
+
+temp <- expression_wide %>%
+  column_to_rownames("study_number") %>%
+  dplyr::select(target_genes_qc) %>% 
   drop_na() %>% # drop NA 
   Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
 
 temp.cor <- cor(temp, method = "spearman") 
 
-pheatmap(data.matrix(temp.cor), 
-         scale = "none",
-         cluster_rows = TRUE, 
-         cluster_cols = TRUE,
-         fontsize = 7)
+p1 <- pheatmap(data.matrix(temp.cor), 
+               scale = "none",
+               cluster_rows = TRUE, 
+               cluster_cols = TRUE,
+               legend = TRUE,
+               fontsize = 7)
+p1
 
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.pdf"), plot = p1)
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.png"), plot = p1)
+
+
+rm(temp, temp.cor, p1)
 
 ```
-
 
 
 # Session information
 
 ------
 
-    Version:      v1.0.0
-    Last update:  2020-06-30
+    Version:      v1.0.2
+    Last update:  2020-11-26
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
     
-    Change log
-    * v1.0.0 Initial version
+    **MoSCoW To-Do List**
+    The things we Must, Should, Could, and Would have given the time we have.
+    _M_
+ 
+    _S_
+    
+    _C_
+    
+    _W_
+    
+    
+    **Changes log**
+    * v1.0.1 Filter samples based on artery operated (CEA) and informed consent.
+    * v1.0.1 Added heatmap of correlation between target genes. 
+    * v1.0.0 Inital version.
 
 ------
 

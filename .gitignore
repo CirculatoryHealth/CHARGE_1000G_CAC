@@ -1,4 +1,23 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
+# hidden files
+.*
+!.gitignore
+
+# vim files
+*~
+# outputs
+*.RData
+*.rds
+*.RDS
+
+*.dictionary.html
+
+# pyton
+venv/
+*.egg-info/*
+__pycache__
+# tag files
+tags
+*.Rproj.user
+*.Rproj
+*.Ruserdata
+*.Rhistory

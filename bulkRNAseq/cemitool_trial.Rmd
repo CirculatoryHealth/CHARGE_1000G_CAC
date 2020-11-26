@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+# Co-expression analysis using `CEMiTool`
+
+To this end we will make use of the `r` package [`CEMiTool`](https://www.bioconductor.org/packages/release/bioc/vignettes/CEMiTool/inst/doc/CEMiTool.html).
+
+```{r CEMiTool: prepare}
+library(CEMiTool)
+library(tidyverse)
+data(expr0) # load example data
+
+expression_data$symbol <- mapIds(org.Hs.eg.db,
+                    keys = expression_data$gene_ensembl,
+                    column = "SYMBOL",
+                    keytype = "ENSEMBL",
+                    multiVals = "first")
+head(expression_data)
+# tidy and subset
+temp_sel <- expression_data %>%
+  dplyr::select(gene_ensembl, symbol, everything())
+temp_sel$symbol_ensg <- paste(temp_sel$gene_ensembl, temp_sel$symbol, sep = "_")
+DT <- as.data.table(temp_sel)
+# which columns are numeric 
+numeric_cols <- which(sapply(DT, is.numeric))
+DT2 <- DT[, lapply(.SD, mean), by = symbol_ensg, .SDcols = numeric_cols]
+head(DT2)
+
+temp <- as.data.frame(DT2)
+
+row.names(temp) <- temp$symbol_ensg
+temp$symbol_ensg <- NULL
+head(temp)
+
+# head(temp_sel)
+
+expr_cemi <- temp %>%
+  # column_to_rownames("study_number") %>%
+  # dplyr::select(target_genes_qc) %>%
+  drop_na() %>% # drop NA 
+  Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+
+head(expr_cemi)
+dim(expr_cemi)
+
+rm(temp, DT, DT2, temp_sel, numeric_cols)
+
+
+```
+
+```{r CEMiTool: run}
+cem <- cemitool(expr = expr_cemi, 
+                filter = TRUE,
+                # apply_vst = TRUE, 
+                cor_method = "spearman",
+                verbose = TRUE)
+
+cem_example <- cemitool(expr = expr0,
+                verbose = TRUE)
+```
+
+```{r CEMiTool: inspect}
+cem
+cem_example
+```
+
+```{r CEMiTool: diagnose}
+diagnostic_report(cem, force = TRUE)
+# diagnostic_report(cem_example, force = TRUE)
+
+```
+
+
+```{r CEMiTool: report}
+# Create report as html file
+generate_report(cem, directory = "./Report", output_format="html_document")
+
+# Write analysis results into files
+write_files(cem, directory="./Tables", force=TRUE)
+
+# Save all plots
+save_plots(cem, "all", directory="./Plots")
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
