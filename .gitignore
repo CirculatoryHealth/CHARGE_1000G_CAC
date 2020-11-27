@@ -21,3 +21,4 @@ tags
 *.Rproj
 *.Ruserdata
 *.Rhistory
+.Rproj.user

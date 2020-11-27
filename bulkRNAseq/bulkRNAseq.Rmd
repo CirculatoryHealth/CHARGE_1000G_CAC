@@ -1786,7 +1786,7 @@ rm(temp, temp.cor, p1)
 
 ### Plaque vulnerability index
 
-**Figure 10: genes of interest plotted over plaque vulnerability index**
+**Figure 9: genes of interest plotted over plaque vulnerability index**
 ```{r boxplot_function, plaque vulnerability index, fig.width = 12, fig.height = 10}
 # Make directory for plots
 ifelse(!dir.exists(file.path(QC_loc, "/PlaqueVulnerabilityIndex")), 
@@ -1868,11 +1868,75 @@ for(GENE in target_genes_qc){
 
 ```
 
+**Figure 10: correlation heatmap between plaque vulnerability index, and genes of interest**
+```{r heatmap_corr, PVI, fig.height = 6, fig.width = 7}
+library(tidyverse)
+library(magrittr)
+
+expression_wide_PVI <- expression_long_PVI %>%
+  dplyr::select(-gene_ensembl) %>%
+  spread(key = symbol, value = expression_value)
+
+temp <- expression_wide_PVI %>%
+  column_to_rownames("study_number") %>%
+  dplyr::select("levels", target_genes_qc) %>% 
+  drop_na() %>% # drop NA 
+  mutate(across(all_of("levels"), as.numeric)) #%>% # convert factors to numeric
+  # Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+# str(temp)
+
+# Rename column where names is "Sepal.Length"
+names(temp)[names(temp) == "levels"] <- "Plaque Vulnerability Index"
+# dim(temp)
+
+temp.cor <- cor(temp, method = "spearman") 
+
+p1 <- pheatmap(data.matrix(temp.cor), 
+               scale = "none",
+               cluster_rows = TRUE, 
+               cluster_cols = TRUE,
+               legend = TRUE,
+               fontsize = 7)
+
+p1 
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.pdf"), plot = p1)
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.png"), plot = p1)
+
+rm(temp, temp.cor, p1)
+
+```
+
+```{r kruskal_wallis_all, PVI}
+var_pairs <- crossing(target_genes_qc, c("Plaque Vulnerability Index")) %>%
+  setNames(c("genes", "variables"))
+
+d <- expression_wide_PVI %>%
+  dplyr::select(target_genes_qc, "levels") #%>% 
+ # mutate(across(all_of("levels"), as.numeric)) #%>% # convert factors to numeric
+
+names(d)[names(d) == "levels"] <- "Plaque Vulnerability Index"
+
+kw_results_PVI <- var_pairs %>%
+  dplyr::mutate(r.test = purrr::map2(genes, variables, ~ stats::kruskal.test(d[[.x]], d[[.y]])),
+                r.test = purrr::map(r.test, broom::tidy)) %>%
+  tidyr::unnest(r.test) %>%
+  mutate(padj = p.adjust(p.value, method = "holm"))
+
+DT::datatable(kw_results_PVI)
+
+fwrite(kw_results_PVI, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.gene_vs_PVI.txt"))
+
+
+```
+
+
 # Session information
 
 ------
 
-    Version:      v1.0.3
+    Version:      v1.0.4
     Last update:  2020-11-27
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
@@ -1890,6 +1954,7 @@ for(GENE in target_genes_qc){
     
     
     **Changes log**
+    * v1.0.4 Add correlation analysis and heatmap for plaque vulnerability index.
     * v1.0.3 Add gene expression as a function of plaque vulnerability index.
     * v1.0.2 Filter samples based on artery operated (CEA) and informed consent.
     * v1.0.1 Added heatmap of correlation between target genes. 
