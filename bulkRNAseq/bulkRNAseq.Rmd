@@ -658,6 +658,83 @@ table(AEDB$MedHx_CVD)
 
 ```
 
+```{r Plaque Vulnerability}
+# Plaque vulnerability
+table(AEDB.CEA$Macrophages.bin)
+table(AEDB.CEA$Fat.bin_10)
+table(AEDB.CEA$Collagen.bin)
+table(AEDB.CEA$SMC.bin)
+table(AEDB.CEA$IPH.bin)
+# SPSS code
+# 
+# *** syntax- Plaque vulnerability**.
+# COMPUTE Macro_instab = -999.
+# IF macrophages.bin=2 Macro_instab=1.
+# IF macrophages.bin=1 Macro_instab=0.
+# EXECUTE.
+# 
+# COMPUTE Fat10_instab = -999.
+# IF Fat.bin_10=2 Fat10_instab=1.
+# IF Fat.bin_10=1 Fat10_instab=0.
+# EXECUTE.
+# 
+# COMPUTE coll_instab=-999.
+# IF Collagen.bin=2 coll_instab=0.
+# IF Collagen.bin=1 coll_instab=1.
+# EXECUTE.
+# 
+# 
+# COMPUTE SMC_instab=-999.
+# IF SMC.bin=2 SMC_instab=0.
+# IF SMC.bin=1 SMC_instab=1.
+# EXECUTE.
+# 
+# COMPUTE IPH_instab=-999.
+# IF IPH.bin=0 IPH_instab=0.
+# IF IPH.bin=1 IPH_instab=1.
+# EXECUTE.
+# 
+# COMPUTE Instability=Macro_instab + Fat10_instab +  coll_instab + SMC_instab + IPH_instab.
+# EXECUTE.
+# Fix plaquephenotypes
+attach(AEDB.CEA)
+# mac instability
+AEDB.CEA[,"MAC_Instability"] <- NA
+AEDB.CEA$MAC_Instability[Macrophages.bin == -999] <- NA
+AEDB.CEA$MAC_Instability[Macrophages.bin == "no/minor"] <- 0
+AEDB.CEA$MAC_Instability[Macrophages.bin == "moderate/heavy"] <- 1
+# fat instability
+AEDB.CEA[,"FAT10_Instability"] <- NA
+AEDB.CEA$FAT10_Instability[Fat.bin_10 == -999] <- NA
+AEDB.CEA$FAT10_Instability[Fat.bin_10 == " <10%"] <- 0
+AEDB.CEA$FAT10_Instability[Fat.bin_10 == " >10%"] <- 1
+# col instability 
+AEDB.CEA[,"COL_Instability"] <- NA
+AEDB.CEA$COL_Instability[Collagen.bin == -999] <- NA
+AEDB.CEA$COL_Instability[Collagen.bin == "no/minor"] <- 1
+AEDB.CEA$COL_Instability[Collagen.bin == "moderate/heavy"] <- 0
+# smc instability
+AEDB.CEA[,"SMC_Instability"] <- NA
+AEDB.CEA$SMC_Instability[SMC.bin == -999] <- NA
+AEDB.CEA$SMC_Instability[SMC.bin == "no/minor"] <- 1
+AEDB.CEA$SMC_Instability[SMC.bin == "moderate/heavy"] <- 0
+# iph instability
+AEDB.CEA[,"IPH_Instability"] <- NA
+AEDB.CEA$IPH_Instability[IPH.bin == -999] <- NA
+AEDB.CEA$IPH_Instability[IPH.bin == "no"] <- 0
+AEDB.CEA$IPH_Instability[IPH.bin == "yes"] <- 1
+detach(AEDB.CEA)
+table(AEDB.CEA$MAC_Instability, useNA = "ifany")
+table(AEDB.CEA$FAT10_Instability, useNA = "ifany")
+table(AEDB.CEA$COL_Instability, useNA = "ifany")
+table(AEDB.CEA$SMC_Instability, useNA = "ifany")
+table(AEDB.CEA$IPH_Instability, useNA = "ifany")
+# creating vulnerability index
+AEDB.CEA <- AEDB.CEA %>% mutate(Plaque_Vulnerability_Index = factor(rowSums(.[grep("_Instability", names(.))], na.rm = TRUE)),
+                                )
+table(AEDB.CEA$Plaque_Vulnerability_Index, useNA = "ifany")
+# str(AEDB.CEA$Plaque_Vulnerability_Index)
+```
 
 # Athero-Express Biobank Study
 
@@ -1112,7 +1189,7 @@ cat("  > construction of the SE\n")
                                 metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected"))
 
 cat("\n* removing intermediate files ...\n")
-# rm(temp, temp_coldat, temp_coldat_clin)
+rm(temp, temp_coldat, temp_coldat_clin)
 
 ```
 
@@ -1323,6 +1400,11 @@ temp = target_genes[!target_genes %in% target_genes_rm]
 target_genes_qc <- c(temp)
 
 target_genes_qc
+
+# for debug
+target_genes_qc_test <- c("APOE", "ADAMTS7", "CHRNA5", "MORF4L1")
+
+
 ```
 
 
@@ -1702,13 +1784,96 @@ rm(temp, temp.cor, p1)
 
 ```
 
+### Plaque vulnerability index
+
+**Figure 10: genes of interest plotted over plaque vulnerability index**
+```{r boxplot_function, plaque vulnerability index, fig.width = 12, fig.height = 10}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/PlaqueVulnerabilityIndex")), 
+       dir.create(file.path(QC_loc, "/PlaqueVulnerabilityIndex")), 
+       FALSE)
+PVI_loc = paste0(QC_loc,"/PlaqueVulnerabilityIndex")
+
+# gather expression_data_sel df into long df form for annotation, plotting and statistics
+expression_long_PVI <-
+     gather(expression_data_sel, key = "study_number", value = "expression_value", -c(gene_ensembl, symbol))
+
+# old school way
+# Annotate with smoking variables
+# sample_ids <- expression_long$study_number
+# mm <- match(expression_long$study_number, rownames(colData(vsd)))
+#
+# ## Add traits to df
+# ## Binary traits
+# expression_long$sex <- colData(vsd)$sex[mm]
+# expression_long$testosterone <- colData(vsd)$testosterone[mm]
+# expression_long$t_e2_ratio <- colData(vsd)$t_e2_ratio[mm]
+
+# new school way
+plaque_phenotypes_PVI <- c("Plaque_Vulnerability_Index")
+
+expression_long_PVI <- expression_long_PVI %>%
+  left_join(bulkRNA_meta_clin %>% dplyr::select(study_number,
+                                       plaque_phenotypes_PVI,
+                                       Gender, Hospital),
+            by = "study_number") 
+head(expression_long_PVI)
+unique(expression_long_PVI$Plaque_Vulnerability_Index)
+
+expression_long_PVI <- expression_long_PVI %>%
+  pivot_longer(cols = plaque_phenotypes_PVI, 
+               names_to = "Plaque_Vulnerability_Index",
+               values_to = "levels") %>%
+  mutate(levels = factor(levels, levels = c("0", "1", "2", "3", "4", "5"))) # turn factor, and order factor levels for plotting
+
+for(GENE in target_genes_qc){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long_PVI, symbol == GENE)
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "levels",
+                          y = "expression_value",
+                          color = "levels", #fill = "levels",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 1.5, jitter = 0.3),
+                          xlab = "plaque vulnerability index",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p1)
+  
+  p2 <- ggpubr::ggboxplot(temp,
+                          x = "levels",
+                          y = "expression_value",
+                          color = "Gender", #fill = "Gender",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 1.5, jitter = 0.3),
+                          xlab = "plaque vulnerability index",
+                          ylab = paste0("normalized expression ", GENE,"" )  
+                          )
+  print(p2)
+  
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.png"), plot = p1)
+  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.pdf"), plot = p1)
+
+  cat(paste0("Saving image for ", GENE,", sex-stratified.\n"))
+  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.png"), plot = p2)
+  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.pdf"), plot = p2)
+
+  rm(temp, p1 )
+  
+}
+
+
+```
 
 # Session information
 
 ------
 
-    Version:      v1.0.2
-    Last update:  2020-11-26
+    Version:      v1.0.3
+    Last update:  2020-11-27
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -1725,7 +1890,8 @@ rm(temp, temp.cor, p1)
     
     
     **Changes log**
-    * v1.0.1 Filter samples based on artery operated (CEA) and informed consent.
+    * v1.0.3 Add gene expression as a function of plaque vulnerability index.
+    * v1.0.2 Filter samples based on artery operated (CEA) and informed consent.
     * v1.0.1 Added heatmap of correlation between target genes. 
     * v1.0.0 Inital version.
 
