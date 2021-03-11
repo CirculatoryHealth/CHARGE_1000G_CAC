@@ -32,7 +32,7 @@ knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/',
 
 _Clean the environment._
 ```{r ClearEnvironment, echo = FALSE}
-# rm(list = ls())
+rm(list = ls())
 ```
 
 _Set locations, and the working directory ..._
@@ -43,17 +43,19 @@ _Set locations, and the working directory ..._
 # GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
 
 ### MacBook
-ROOT_loc = "/Users/swvanderlaan"
-GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 
 ### Generic Locations
 AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
-RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AESCRNA/prepped_data")
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
-TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
+RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AESCRNA/prepped_data")
+
+RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+
+TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
 cat("\nDefining phenotypes and datasets.\n")
@@ -237,8 +239,8 @@ Plaque samples are derived from carotid endarterectomies as part of the [Athero-
 
 Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
 
-- IndSigSNPsforSander.xlsx
-- GeneList_15042020.xlsx
+- `IndSigSNPsforSander.xlsx`
+- `GeneList_15042020.xlsx`
 
 ```{r CAC targets}
 library(openxlsx)
@@ -258,8 +260,8 @@ We will construct a list of genes to map to our scRNAseq data.
 
 ```{r CAC targets for mapping}
 
-CAC_target_genes <- unlist(CAC_gene_list$symbol)
-CAC_target_genes
+target_genes <- unlist(CAC_gene_list$symbol)
+target_genes
 ```
 
 
@@ -366,7 +368,7 @@ We will group as follows:
 6. Other > 5, 9, 10, 12, 16, 17
 
 
-```{r FixSymptoms}
+```{r FixSymptoms, message=FALSE, warning=FALSE}
 
 # Fix symptoms
 
@@ -427,7 +429,7 @@ Coding of symptoms is as follows:
 - atheromatous	3	
 
 
-```{r FixPlaquePhenotypes}
+```{r FixPlaquePhenotypes, message=FALSE, warning=FALSE}
 
 # Fix plaquephenotypes
 attach(AEDB)
@@ -453,7 +455,7 @@ detach(AEDB)
 
 We will also fix the _diabetes_ status variable.
 
-```{r FixDiabetes}
+```{r FixDiabetes, message=FALSE, warning=FALSE}
 
 # Fix diabetes
 attach(AEDB)
@@ -491,7 +493,7 @@ We already have some variables indicating smoking status:
 
 
 
-```{r FixSmoking}
+```{r FixSmoking, message=FALSE, warning=FALSE}
 require(labelled)
 AEDB$diet801 <- to_factor(AEDB$diet801)
 AEDB$diet802 <- to_factor(AEDB$diet802)
@@ -553,7 +555,7 @@ table(AEDB$SmokerStatus, AEDB$SmokerCurrent,
 We will also fix the _alcohol_ status variable.
 
 
-```{r FixAlcohol}
+```{r FixAlcohol, message=FALSE, warning=FALSE}
 
 # Fix diabetes
 attach(AEDB)
@@ -1032,31 +1034,67 @@ FeaturePlot(scRNAseqData, features = c("NCAM1"), cols =  c("#ECECEC", "#DB003F")
 
 ## Targets of interest: 
 
-We check whether the targets genes, _`r CAC_target_genes`_, were sequenced using our method (STARseq). 
+We check whether the targets genes, _`r target_genes`_, were sequenced using our method (STARseq). 
 
 Several genes are not present or have different names, these are listed here, and were manually removed from/changed in the list.
 
-- AC011294.3
-- C9orf53 => CDKN2A-DT, not found
-- RP11-145E5.5
-- AL137026.1
-- ZNF32
-- BCAM => CD239, not found
-- PVRL2 => NECTIN2
-- C6orf195
+- _AC011294.3_ ==> not found
+- _C6orf195_ => _LINC01600_ replacement, not found
+- _C9orf53_ => _CDKN2A-DT_ replacement, not found
+- _AL137026.1_ ==> not found
+- _DUPD1_ => _DUSP29_ replacement, not found
+- _RP11-145E5.5_ ==> not found
+- _PVRL2_ => _NECTIN2_ replacement
+- _KIAA1462_ => _JCAD_ replacement
+- _ZNF32_ ==> not found
+- _BCAM_ ==> not found
+
+```{r list target genes}
+target_genes
+```
 
 ### Expression in cell communities
+```{r Visualisation: preparation}
+
+target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2",
+                     "RP1-257A7.4", "RP1-257A7.5", "KIAA1462",
+                     "ZNF32", "BCAM")
+
+temp = target_genes[!target_genes %in% target_genes_rm]
+
+target_genes_qc <- c(temp, "NECTIN2", "JCAD")
+
+target_genes_qc
+
+```
+
+```{r Visualisation: Targets Feature and Dot Plots, message=FALSE, warning=FALSE}
+library(RColorBrewer)
+
+p1 <- DotPlot(scRNAseqData, features = target_genes_qc,
+        cols = "RdBu")
+
+p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
+
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.png"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ps"), plot = last_plot())
+
+rm(p1)
+
+# FeaturePlot(scRNAseqData, features = c(target_genes_qc),
+#             cols =  c("#ECECEC", "#DB003F", "#9A3480","#1290D9"),
+#             combine = TRUE)
+# 
+# ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.png"), plot = last_plot())
+# ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.ps"), plot = last_plot())
+
+
+```
+
 ```{r Visualisation: Targets}
+# VlnPlot(scRNAseqData, features = "DUSP29")
 
-CAC_target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "ZNF32", "BCAM", "PVRL2", "C6orf195")
-
-temp = CAC_target_genes[!CAC_target_genes %in% CAC_target_genes_rm]
-
-CAC_target_genes_qc <- c(temp, "NECTIN2", "LINC01600")
-
-# VlnPlot(scRNAseqData, features = "LINC01600")
-
-for (GENE in CAC_target_genes_qc){
+for (GENE in target_genes_qc){
   print(paste0("Projecting the expression of ", GENE, "."))
 
   vp1 <-  VlnPlot(scRNAseqData, features = GENE) + 
@@ -1068,32 +1106,13 @@ for (GENE in CAC_target_genes_qc){
     ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".png"), plot = last_plot())
     ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".ps"), plot = last_plot())
   
-  print(vp1)
+  # print(vp1)
   
 }
 
-
-library(RColorBrewer)
-
-p1 <- DotPlot(scRNAseqData, features = CAC_target_genes_qc,
-        cols = "RdBu")
-
-p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
-
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.png"), plot = last_plot())
-ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ps"), plot = last_plot())
-
-rm(p1)
-
-FeaturePlot(scRNAseqData, features = c(CAC_target_genes_qc),
-            cols =  c("#ECECEC", "#DB003F", "#9A3480","#1290D9"),
-            combine = TRUE)
-
-ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.png"), plot = last_plot())
-ggsave(paste0(PLOT_loc, "/", Today, ".FeaturePlot.Targets.ps"), plot = last_plot())
-
-
 ```
+
+
 
 ### Differential expression between cell communities
 
@@ -1112,7 +1131,7 @@ Here we project genes to only the broad cell communities:
 #### Macrophages
 
 Comparison between the macrophages cell communities (_CD14/CD68_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano MAC}
+```{r Visualisation: Volcano MAC calculate}
 N_GENES=20552
 MAC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD14+CD68+ M I", 
@@ -1137,21 +1156,23 @@ MAC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(MAC.markers)
+```
 
+```{r Visualisation: Volcano MAC, message=FALSE, warning=FALSE}
 MAC_Volcano_TargetsA = EnhancedVolcano(MAC.markers,
     lab = rownames(MAC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "Macrophage markers\n(Macrophage communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1171,7 +1192,7 @@ The target results are given below and written to a file.
 library(tibble)
 MAC.markers <- add_column(MAC.markers, Gene = row.names(MAC.markers), .before = 1)
 
-temp <- MAC.markers[MAC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- MAC.markers[MAC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1187,7 +1208,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MAC.DEG.Targets.txt"),
 #### Smooth muscle cells
 
 Comparison between the smooth muscle cell communities (_ACTA2_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano SMC}
+```{r Visualisation: Volcano SMC calculate}
 N_GENES=20552
 SMC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("ACTA2+ SMC"), 
@@ -1210,21 +1231,23 @@ SMC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(SMC.markers)
+```
 
+```{r Visualisation: Volcano SMC, message=FALSE, warning=FALSE}
 SMC_Volcano_TargetsA = EnhancedVolcano(SMC.markers,
     lab = rownames(SMC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "SMC markers\n(SMC communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1244,7 +1267,7 @@ The target results are given below and written to a file.
 library(tibble)
 SMC.markers <- add_column(SMC.markers, Gene = row.names(SMC.markers), .before = 1)
 
-temp <- SMC.markers[SMC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- SMC.markers[SMC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1260,7 +1283,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".SMC.DEG.Targets.txt"),
 #### Endothelial cells
 
 Comparison between the endothelial cell communities (_CD34_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano EC}
+```{r Visualisation: Volcano EC calculate}
 N_GENES=20552
 EC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD34+ EC I", "CD34+ EC II"), 
@@ -1283,21 +1306,23 @@ EC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(EC.markers)
+```
 
+```{r Visualisation: Volcano EC, message=FALSE, warning=FALSE}
 EC_Volcano_TargetsA = EnhancedVolcano(EC.markers,
     lab = rownames(EC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "Endothelial cell markers\n(EC communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1317,7 +1342,7 @@ The target results are given below and written to a file.
 library(tibble)
 EC.markers <- add_column(EC.markers, Gene = row.names(EC.markers), .before = 1)
 
-temp <- EC.markers[EC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- EC.markers[EC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1332,7 +1357,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".EC.DEG.Targets.txt"),
 #### T-cells
 
 Comparison between the T-cell communities (_CD3/CD4/CD8_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano Tcell}
+```{r Visualisation: Volcano Tcell calculate}
 N_GENES=20552
 TC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD3+CD8+ T I",
@@ -1360,21 +1385,23 @@ TC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(TC.markers)
+```
 
+```{r Visualisation: Volcano Tcell, message=FALSE, warning=FALSE}
 TC_Volcano_TargetsA = EnhancedVolcano(TC.markers,
     lab = rownames(TC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "T-cell markers\n(T-cell communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1394,7 +1421,7 @@ The target results are given below and written to a file.
 library(tibble)
 TC.markers <- add_column(TC.markers, Gene = row.names(TC.markers), .before = 1)
 
-temp <- TC.markers[TC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- TC.markers[TC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1410,7 +1437,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".TC.DEG.Targets.txt"),
 #### B-cells
 
 Comparison between the B-cell communities (_CD79A_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano Bcell}
+```{r Visualisation: Volcano Bcell calculate}
 N_GENES=20552
 BC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD79A+ B I", 
@@ -1432,21 +1459,23 @@ BC.markers <- FindMarkers(object = scRNAseqData,
                                       "KIT+ MC"))
 
 DT::datatable(BC.markers)
+```
 
+```{r Visualisation: Volcano Bcell, message=FALSE, warning=FALSE}
 BC_Volcano_TargetsA = EnhancedVolcano(BC.markers,
     lab = rownames(BC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "B-cell markers\n(B-cell communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1466,7 +1495,7 @@ The target results are given below and written to a file.
 library(tibble)
 BC.markers <- add_column(BC.markers, Gene = row.names(BC.markers), .before = 1)
 
-temp <- BC.markers[BC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- BC.markers[BC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1482,7 +1511,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".BC.DEG.Targets.txt"),
 #### Mast cells
 
 Comparison between the mast cell communities (_KIT_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano Mast}
+```{r Visualisation: Volcano Mast calculate}
 N_GENES=20552
 MC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("KIT+ MC"), 
@@ -1505,21 +1534,23 @@ MC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(MC.markers)
+```
 
+```{r Visualisation: Volcano Mast, message=FALSE, warning=FALSE}
 MC_Volcano_TargetsA = EnhancedVolcano(MC.markers,
     lab = rownames(MC.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "Mast cell markers\n(Mast cell communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1539,7 +1570,7 @@ The target results are given below and written to a file.
 library(tibble)
 MC.markers <- add_column(MC.markers, Gene = row.names(MC.markers), .before = 1)
 
-temp <- MC.markers[MC.markers$Gene %in% CAC_target_genes_qc,]
+temp <- MC.markers[MC.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1555,7 +1586,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MC.DEG.Targets.txt"),
 #### NK-cells
 
 Comparison between the natural killer cell communities (_NCAM1_<sup>+</sup>), and all other communities.
-```{r Visualisation: Volcano NK}
+```{r Visualisation: Volcano NK calculate}
 N_GENES=20552
 NK.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("NCAM1+ NK"), 
@@ -1571,28 +1602,30 @@ NK.markers <- FindMarkers(object = scRNAseqData,
                                       "CD34+ EC I", "CD34+ EC II",
                                       "Mixed I",
                                       "Mixed II",
+                                      #"NCAM1+ NK",
                                       "ACTA2+ SMC", 
-                                      "NCAM1+ NK", 
                                       "KIT+ MC",
                                       "CD79A+ B I", 
                                       "CD79A+ B II"))
 
 DT::datatable(NK.markers)
+```
 
+```{r Visualisation: Volcano NK, message=FALSE, warning=FALSE}
 NK_Volcano_TargetsA = EnhancedVolcano(NK.markers,
     lab = rownames(NK.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "NK markers\n(NK-cell communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1612,7 +1645,7 @@ The target results are given below and written to a file.
 library(tibble)
 NK.markers <- add_column(NK.markers, Gene = row.names(NK.markers), .before = 1)
 
-temp <- NK.markers[NK.markers$Gene %in% CAC_target_genes_qc,]
+temp <- NK.markers[NK.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1627,7 +1660,7 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".NK.DEG.Targets.txt"),
 #### Mixed cells
 
 Comparison between the mixed cell communities, and all other communities.
-```{r Visualisation: Volcano MIXED}
+```{r Visualisation: Volcano MIXED calculate}
 N_GENES=20552
 MIXED.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("Mixed I", 
@@ -1651,21 +1684,23 @@ MIXED.markers <- FindMarkers(object = scRNAseqData,
                                       "CD79A+ B II"))
 
 DT::datatable(MIXED.markers)
+```
 
+```{r Visualisation: Volcano MIXED, message=FALSE, warning=FALSE}
 MIXED_Volcano_TargetsA = EnhancedVolcano(MIXED.markers,
     lab = rownames(MIXED.markers),
-    x = "avg_logFC",
+    x = "avg_log2FC",
     y = "p_val_adj",
-    selectLab = CAC_target_genes_qc,
+    selectLab = target_genes_qc,
     axisLabSize = 12,
     xlab = "average fold-change",
     title = "Mixed markers\n(Mixed cell communities vs the rest)",
     titleLabSize = 14,
     pCutoff = 0.05/N_GENES, # 20552 genes
     FCcutoff = 1.25,
-    transcriptPointSize = 1.5,
-    transcriptLabSize = 3.0,
-    legend=c('NS','avg. fold-change','P',
+    pointSize = 1.5,
+    labSize = 3.0,
+    legendLabels =c('NS','avg. fold-change','P',
       'P & avg. fold-change'),
     legendPosition = "right",
     legendLabSize = 10,
@@ -1685,7 +1720,7 @@ The target results are given below and written to a file.
 library(tibble)
 MIXED.markers <- add_column(MIXED.markers, Gene = row.names(MIXED.markers), .before = 1)
 
-temp <- MIXED.markers[MIXED.markers$Gene %in% CAC_target_genes_qc,]
+temp <- MIXED.markers[MIXED.markers$Gene %in% target_genes_qc,]
 
 DT::datatable(temp)
 ```
@@ -1702,13 +1737,14 @@ fwrite(temp, file = paste0(OUT_loc, "/", Today, ".MIXED.DEG.Targets.txt"),
 
 ------
 
-    Version:      v1.0.0
-    Last update:  2020-06-17
+    Version:      v1.0.1
+    Last update:  2021-03-11
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load single-cell RNA sequencing (scRNAseq) data, and perform quality control (QC), and initial mapping to cells.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
     
     Change log
+    * v1.0.1 Update to the gene list.
     * v1.0.0 Initial version
 
 ------
@@ -1723,6 +1759,6 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".scrnaseq_results.RDat
 ```
 
 ------
-<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
 ------
 

@@ -266,7 +266,11 @@ Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (
 ```{r CAC targets}
 library(openxlsx)
 
-CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+# old list
+# CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+
+# update list
+CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/20210127_Overview_Genes_MMBos_Sander.xlsx"))
 
 CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
 
@@ -660,14 +664,11 @@ table(AEDB$MedHx_CVD)
 
 ```
 
-```{r Plaque Vulnerability}
+```{r Plaque Vulnerability, message=FALSE, warning=FALSE}
 # Plaque vulnerability
-table(AEDB.CEA$Macrophages.bin)
-table(AEDB.CEA$Fat.bin_10)
-table(AEDB.CEA$Collagen.bin)
-table(AEDB.CEA$SMC.bin)
-table(AEDB.CEA$IPH.bin)
+
 # SPSS code
+
 # 
 # *** syntax- Plaque vulnerability**.
 # COMPUTE Macro_instab = -999.
@@ -698,44 +699,70 @@ table(AEDB.CEA$IPH.bin)
 # 
 # COMPUTE Instability=Macro_instab + Fat10_instab +  coll_instab + SMC_instab + IPH_instab.
 # EXECUTE.
+
+require(labelled)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+
+table(AEDB$Macrophages.bin)
+table(AEDB$Fat.bin_10)
+table(AEDB$Collagen.bin)
+table(AEDB$SMC.bin)
+table(AEDB$IPH.bin)
+
 # Fix plaquephenotypes
-attach(AEDB.CEA)
+attach(AEDB)
 # mac instability
-AEDB.CEA[,"MAC_Instability"] <- NA
-AEDB.CEA$MAC_Instability[Macrophages.bin == -999] <- NA
-AEDB.CEA$MAC_Instability[Macrophages.bin == "no/minor"] <- 0
-AEDB.CEA$MAC_Instability[Macrophages.bin == "moderate/heavy"] <- 1
+AEDB[,"MAC_Instability"] <- NA
+AEDB$MAC_Instability[Macrophages.bin == -999] <- NA
+AEDB$MAC_Instability[Macrophages.bin == "no/minor"] <- 0
+AEDB$MAC_Instability[Macrophages.bin == "moderate/heavy"] <- 1
+
 # fat instability
-AEDB.CEA[,"FAT10_Instability"] <- NA
-AEDB.CEA$FAT10_Instability[Fat.bin_10 == -999] <- NA
-AEDB.CEA$FAT10_Instability[Fat.bin_10 == " <10%"] <- 0
-AEDB.CEA$FAT10_Instability[Fat.bin_10 == " >10%"] <- 1
+AEDB[,"FAT10_Instability"] <- NA
+AEDB$FAT10_Instability[Fat.bin_10 == -999] <- NA
+AEDB$FAT10_Instability[Fat.bin_10 == " <10%"] <- 0
+AEDB$FAT10_Instability[Fat.bin_10 == " >10%"] <- 1
+
 # col instability 
-AEDB.CEA[,"COL_Instability"] <- NA
-AEDB.CEA$COL_Instability[Collagen.bin == -999] <- NA
-AEDB.CEA$COL_Instability[Collagen.bin == "no/minor"] <- 1
-AEDB.CEA$COL_Instability[Collagen.bin == "moderate/heavy"] <- 0
+AEDB[,"COL_Instability"] <- NA
+AEDB$COL_Instability[Collagen.bin == -999] <- NA
+AEDB$COL_Instability[Collagen.bin == "no/minor"] <- 1
+AEDB$COL_Instability[Collagen.bin == "moderate/heavy"] <- 0
+
 # smc instability
-AEDB.CEA[,"SMC_Instability"] <- NA
-AEDB.CEA$SMC_Instability[SMC.bin == -999] <- NA
-AEDB.CEA$SMC_Instability[SMC.bin == "no/minor"] <- 1
-AEDB.CEA$SMC_Instability[SMC.bin == "moderate/heavy"] <- 0
+AEDB[,"SMC_Instability"] <- NA
+AEDB$SMC_Instability[SMC.bin == -999] <- NA
+AEDB$SMC_Instability[SMC.bin == "no/minor"] <- 1
+AEDB$SMC_Instability[SMC.bin == "moderate/heavy"] <- 0
+
 # iph instability
-AEDB.CEA[,"IPH_Instability"] <- NA
-AEDB.CEA$IPH_Instability[IPH.bin == -999] <- NA
-AEDB.CEA$IPH_Instability[IPH.bin == "no"] <- 0
-AEDB.CEA$IPH_Instability[IPH.bin == "yes"] <- 1
-detach(AEDB.CEA)
-table(AEDB.CEA$MAC_Instability, useNA = "ifany")
-table(AEDB.CEA$FAT10_Instability, useNA = "ifany")
-table(AEDB.CEA$COL_Instability, useNA = "ifany")
-table(AEDB.CEA$SMC_Instability, useNA = "ifany")
-table(AEDB.CEA$IPH_Instability, useNA = "ifany")
+AEDB[,"IPH_Instability"] <- NA
+AEDB$IPH_Instability[IPH.bin == -999] <- NA
+AEDB$IPH_Instability[IPH.bin == "no"] <- 0
+AEDB$IPH_Instability[IPH.bin == "yes"] <- 1
+
+detach(AEDB)
+
+table(AEDB$MAC_Instability, useNA = "ifany")
+table(AEDB$FAT10_Instability, useNA = "ifany")
+table(AEDB$COL_Instability, useNA = "ifany")
+table(AEDB$SMC_Instability, useNA = "ifany")
+table(AEDB$IPH_Instability, useNA = "ifany")
+
 # creating vulnerability index
-AEDB.CEA <- AEDB.CEA %>% mutate(Plaque_Vulnerability_Index = factor(rowSums(.[grep("_Instability", names(.))], na.rm = TRUE)),
+AEDB <- AEDB %>% mutate(Plaque_Vulnerability_Index = factor(rowSums(.[grep("_Instability", names(.))], na.rm = TRUE)),
                                 )
-table(AEDB.CEA$Plaque_Vulnerability_Index, useNA = "ifany")
-# str(AEDB.CEA$Plaque_Vulnerability_Index)
+
+table(AEDB$Plaque_Vulnerability_Index, useNA = "ifany")
+
+# str(AEDB$Plaque_Vulnerability_Index)
+
 ```
 
 # Athero-Express Biobank Study
@@ -1292,7 +1319,7 @@ head(expression_data_sel)
 set.seed(141619)
 expression_data_sample <- expression_data %>%
      dplyr::select(gene_ensembl, symbol, everything()) %>%
-     sample_n(10000) %>%
+     sample_n(1000) %>%
      unite(symbol_ensembl, symbol, gene_ensembl, sep = "_", remove = FALSE)
 
 expression_data_sample_mean <- expression_data_sample %>%
@@ -1371,7 +1398,7 @@ for(GENE in target_genes){
                           add = "jitter",
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  #print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   
   ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
@@ -1386,16 +1413,23 @@ for(GENE in target_genes){
 
 Based on the above graphs we can see that some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
 
-- AC011294.3
-- C9orf53 => CDKN2A-DT, not found
-- RP11-145E5.5
-- AL137026.1
-- PVRL2 => NECTIN2
-- C6orf195
-- DUPD1 ==> not found
+- _AC011294.3_ ==> not found
+- _C6orf195_ => _LINC01600_ replacement, not found
+- _C9orf53_ => _CDKN2A-DT_ replacement, not found
+- _AL137026.1_ ==> not found
+- _DUPD1_ => _DUSP29_, ==> not found
+- _RP11-145E5.5_ ==> not found
+- _PVRL2_ => _NECTIN2_ replacement, not found
+- _KIAA1462_ => _JCAD_ replacement, not found
+
+```{r list target genes}
+target_genes
+```
 
 ```{r filter target genes}
-target_genes_rm <- c("AC011294.3", "C9orf53", "RP11-145E5.5", "AL137026.1", "PVRL2", "C6orf195", "DUPD1")
+
+target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2",
+                     "RP1-257A7.4", "RP1-257A7.5", "KIAA1462")
 
 temp = target_genes[!target_genes %in% target_genes_rm]
 
@@ -1404,7 +1438,7 @@ target_genes_qc <- c(temp)
 target_genes_qc
 
 # for debug
-target_genes_qc_test <- c("APOE", "ADAMTS7", "CHRNA5", "MORF4L1")
+target_genes_qc_replace <- c("LINC01600", "JCAD", "DUSP29", "NECTIN2")
 
 
 ```
@@ -1429,11 +1463,11 @@ for(GENE in target_genes_qc){
                           add = "median",
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
   ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
-  
+
   rm(temp, p1 )
 }
 
@@ -1458,7 +1492,7 @@ for(GENE in target_genes_qc){
                           add = "median",
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
   ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
@@ -1469,10 +1503,11 @@ for(GENE in target_genes_qc){
 ```
 
 
-## Compare expression to the expression of a sample of 10,000 genes
+## Compare expression to the expression of a sample of 1,000 genes
 
-**Figure 3: comparing expression of genes of interest to mean expression of a sample of 10,000 random genes**
-```{r boxplots_expression_comparison, fig.width = 12}
+**Figure 3: comparing expression of genes of interest to mean expression of a sample of 1,000 random genes**
+
+```{r boxplots_expression_comparison, message=FALSE, warning=FALSE}
 
 expression_wide <- expression_long %>%
   dplyr::select(-gene_ensembl) %>%
@@ -1487,8 +1522,8 @@ expression_wide2 <- expression_wide %>%
 
 expression_long2 <- expression_wide2 %>%
   gather(gene, expression_value, -study_number) %>%
-  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 10,000 genes"))) %>%
-  mutate(gene = factor(gene, levels = c("Mean of 10,000 genes", target_genes_qc)))
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 1,000 genes"))) %>%
+  mutate(gene = factor(gene, levels = c("Mean of 1,000 genes", target_genes_qc)))
 
 mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
 # head(expression_long2)
@@ -1503,10 +1538,12 @@ mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
                           ylab = paste0("normalized expression ")
                           ) +
     geom_hline(yintercept = mean_1000_genes, linetype = "dashed", color = uithof_color[26]) + 
-    theme(axis.text.x = element_text(size = 12, angle = 45, hjust = 1, vjust = 1)) # change orientation of x-axis labels
+    theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1, vjust = 1)) # change orientation of x-axis labels
   p1
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_10000genes.png"), plot = last_plot())
-  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_10000genes.pdf"), plot = last_plot())
+  
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.png"), plot = last_plot())
+  ggsave(filename = paste0(PLOT_loc, "/", Today, ".TargetExpression_vs_1000genes.pdf"), plot = last_plot())
+  
   rm(p1 )
 
 
@@ -1553,7 +1590,7 @@ for(GENE in target_genes_qc){
                           add.params = list(size = 0.1, jitter = 0.2),
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.png"), plot = last_plot())
   ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
@@ -1602,7 +1639,7 @@ for(GENE in target_genes_qc){
                           add.params = list(size = 0.1, jitter = 0.2),
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.png"), plot = last_plot())
   ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
@@ -1623,7 +1660,7 @@ for(GENE in target_genes_qc){
                           add.params = list(size = 0.1, jitter = 0.2),
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.png"), plot = last_plot())
   ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
@@ -1638,7 +1675,7 @@ for(GENE in target_genes_qc){
 
 Since we have multiple groups, while data and residuals are not normally distributed, we need to use a Kruskal-Wallis test. The assumptions here are independent samples (yes), and homoscedasticity (yes). No assumption that the data or residuals have a known distribution.
 
-```{r kruskal_wallis_all}
+```{r kruskal_wallis_all outcome}
 var_pairs <- crossing(target_genes_qc, c(plaque_phenotypes_cat, "epmajor.3years")) %>%
   setNames(c("genes", "variables"))
 
@@ -1685,7 +1722,7 @@ for(GENE in target_genes_qc){
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
   
-  print(p1)
+  # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.png"), plot = last_plot())
   ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
@@ -1699,7 +1736,7 @@ for(GENE in target_genes_qc){
 #### Statistical testing: correlation
 
 If we calculate the correlation coefficients and corresponding p-values for these correlations, we get the following dataframe. Correlation method used in this case is Spearman's, since the genes in most case are not nicely normally distributed.
-```{r linear_corr_spearman_est}
+```{r linear_corr_spearman_est, message=FALSE, warning=FALSE}
 var_pairs <- crossing(target_genes_qc, plaque_phenotypes_num) %>%
   setNames(c("genes", "plaque_phenotype"))
 
@@ -1725,7 +1762,7 @@ If we would put these correlations in one simple and comprehensible figure, we c
 Note that we removed _DUPD1_ given that it's standard deviation = 0. 
 
 **Figure 7: correlation heatmap between expression of plaque phenotypes, secondary events (epmajor), and genes of interest**
-```{r heatmap_corr, fig.height = 6, fig.width = 7}
+```{r heatmap_corr, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
 
@@ -1748,16 +1785,16 @@ p1 <- pheatmap(data.matrix(temp.cor),
 
 p1 
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.pdf"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.pdf"), plot = p1, height = 15, width = 15)
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.png"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.png"), plot = p1, height = 15, width = 15)
 
 rm(temp, temp.cor, p1)
 
 ```
 
 **Figure 8: correlation heatmap between expression of genes of interest**
-```{r heatmap_corr_genes, fig.height = 6, fig.width = 7}
+```{r heatmap_corr_genes, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
 
@@ -1777,9 +1814,9 @@ p1 <- pheatmap(data.matrix(temp.cor),
                fontsize = 7)
 p1
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.pdf"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.pdf"), plot = p1, height = 15, width = 15)
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.png"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.png"), plot = p1, height = 15, width = 15)
 
 
 rm(temp, temp.cor, p1)
@@ -1841,7 +1878,7 @@ for(GENE in target_genes_qc){
                           xlab = "plaque vulnerability index",
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p1)
+  # print(p1)
   
   p2 <- ggpubr::ggboxplot(temp,
                           x = "levels",
@@ -1853,7 +1890,7 @@ for(GENE in target_genes_qc){
                           xlab = "plaque vulnerability index",
                           ylab = paste0("normalized expression ", GENE,"" )  
                           )
-  print(p2)
+  # print(p2)
   
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.png"), plot = p1)
@@ -1871,7 +1908,7 @@ for(GENE in target_genes_qc){
 ```
 
 **Figure 10: correlation heatmap between plaque vulnerability index, and genes of interest**
-```{r heatmap_corr, PVI, fig.height = 6, fig.width = 7}
+```{r heatmap_corr PVI, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
 
@@ -1902,15 +1939,15 @@ p1 <- pheatmap(data.matrix(temp.cor),
 
 p1 
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.pdf"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.pdf"), plot = p1, height = 15, width = 15)
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.png"), plot = p1)
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.png"), plot = p1, height = 15, width = 15)
 
 rm(temp, temp.cor, p1)
 
 ```
 
-```{r kruskal_wallis_all, PVI}
+```{r kruskal_wallis_all, message=FALSE, warning=FALSE}
 var_pairs <- crossing(target_genes_qc, c("Plaque Vulnerability Index")) %>%
   setNames(c("genes", "variables"))
 
@@ -1933,13 +1970,28 @@ fwrite(kw_results_PVI, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.
 
 ```
 
+# Gene target list
+
+We are saving the final list of genes of interest
+```{r Save target genes}
+
+temp <- subset(expression_data_sel, select = c("gene_ensembl", "symbol"))
+
+fwrite(temp,
+       file = paste0(OUT_loc, "/", Today, ".target_list.qc.txt"),
+       sep = " ", row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+rm(temp)
+```
+
+
 
 # Session information
 
 ------
 
-    Version:      v1.0.4
-    Last update:  2020-11-27
+    Version:      v1.0.5
+    Last update:  2021-03-11
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -1956,6 +2008,7 @@ fwrite(kw_results_PVI, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.
     
     
     **Changes log**
+    * v1.0.5 Update to the gene list.
     * v1.0.4 Add correlation analysis and heatmap for plaque vulnerability index.
     * v1.0.3 Add gene expression as a function of plaque vulnerability index.
     * v1.0.2 Filter samples based on artery operated (CEA) and informed consent.
@@ -1974,6 +2027,6 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".results.RData"))
 ```
 
 ------
-<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
 ------
 
