@@ -48,6 +48,8 @@ phenotypes are:
 
 Continuous variables were inverse-rank normal transformated, indicated by `_rankNorm`. 
 
+**Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
+![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20210311.overlap.AEDB_AEGS123.UpSetR.png)
 
 ### Gene expression
 
@@ -55,11 +57,11 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
-**Figure 1: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
+**Figure 2: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
 ![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20201126.TargetExpression_vs_10000genes.png)
 
 
-**Figure 2: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
+**Figure 3: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
 ![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20201126.correlations.target_genes.png)
 
 
@@ -69,19 +71,33 @@ We assessed the correlation with plaque characteristics (mentioned above) and se
 
 We projected target genes to the single-cell RNAseq data derived from 37 carotid plaque samples. We identified cell communities (Figure 2), mapped and projected target gene expression to the cell communities (Figure 3). 
 
-**Figure 3: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
+**Figure 4: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
 ![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20200617.UMAP.png)
 
 
-**Figure 4: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
+**Figure 5: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
 ![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20200617.DotPlot.Targets.png)
 
 
+#### Changes log
 
+    Version:      v1.0.3
+    Last update:  2021-03-11
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
+    Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
+    
+    Changes log
+    * v1.0.3 Update to the gene list.
+    * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
+    * v1.0.1 Add an additional phenotype.
+    * v1.0.0 Initial version. Fixed baseline table, added codes, and results. Created sample-files.
+    
+    
 --------------
 
 #### The MIT License (MIT)
-##### Copyright (c) 1979-2020 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
+##### Copyright (c) 1979-2021 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:   
 

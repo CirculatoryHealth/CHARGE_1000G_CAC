@@ -58,15 +58,17 @@ _Set locations and working directories..._
 # AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 # PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/baseline")
 
-### MacBook
-ROOT_loc = "/Users/swvanderlaan"
-GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+### MacBook Air
+ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+
 PLINK_loc=paste0(ROOT_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
+
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 # use this if there is relevant information here.
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
@@ -138,7 +140,7 @@ install.packages.auto <- function(x) {
 ```
 
 _... and load those packages._
-```{r loading_packages}
+```{r loading_packages, message=FALSE, warning=FALSE}
 install.packages.auto("readr")
 install.packages.auto("optparse")
 install.packages.auto("tools")
@@ -245,8 +247,8 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 
 *Collaborators*
 
-Maryam Kavousi
-Patricia Peyser
+Maryam Kavousi,
+Patricia Peyser,
 Maxime Bos
 
 *Project ID* 
@@ -257,16 +259,19 @@ AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC
 
 Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
 
-- IndSigSNPsforSander.xlsx
-- GeneList_15042020.xlsx
+- `IndSigSNPsforSander.xlsx`
+- `20210127_Overview_Genes_MMBos_Sander.xlsx`
 
 ```{r CAC targets}
 library(openxlsx)
 
-gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+# old list
+# gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
+
+# update list
+gene_list <- read.xlsx(paste0(TARGET_loc, "/20210127_Overview_Genes_MMBos_Sander.xlsx"))
 
 variant_list <- read.xlsx(paste0(TARGET_loc, "/CandidateSNPsforSander.xlsx"))
-
 
 DT::datatable(gene_list)
 
@@ -832,21 +837,8 @@ ggpubr::gghistogram(AEDB, "VesselDensity_rankNorm",
 Here we calculate the _plaque instability/vulnerability_ index
 
 ```{r Plaque Vulnerability}
-# Plaque vulnerability
-require(labelled)
-AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
-AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
-AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
-AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
-AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
-AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
-AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
 
-table(AEDB$Macrophages.bin)
-table(AEDB$Fat.bin_10)
-table(AEDB$Collagen.bin)
-table(AEDB$SMC.bin)
-table(AEDB$IPH.bin)
+# Plaque vulnerability
 
 # SPSS code
 
@@ -880,6 +872,21 @@ table(AEDB$IPH.bin)
 # 
 # COMPUTE Instability=Macro_instab + Fat10_instab +  coll_instab + SMC_instab + IPH_instab.
 # EXECUTE.
+
+require(labelled)
+AEDB$Macrophages.bin <- to_factor(AEDB$Macrophages.bin)
+AEDB$SMC.bin <- to_factor(AEDB$SMC.bin)
+AEDB$IPH.bin <- to_factor(AEDB$IPH.bin)
+AEDB$Calc.bin <- to_factor(AEDB$Calc.bin)
+AEDB$Collagen.bin <- to_factor(AEDB$Collagen.bin)
+AEDB$Fat.bin_10 <- to_factor(AEDB$Fat.bin_10)
+AEDB$Fat.bin_40 <- to_factor(AEDB$Fat.bin_40)
+
+table(AEDB$Macrophages.bin)
+table(AEDB$Fat.bin_10)
+table(AEDB$Collagen.bin)
+table(AEDB$SMC.bin)
+table(AEDB$IPH.bin)
 
 # Fix plaquephenotypes
 attach(AEDB)
@@ -1362,6 +1369,9 @@ p1 <- UpSetR::upset(fromList(AEDB.availGWAS),
 pdf(paste0(PLOT_loc, "/", Today, ".overlap.AEDB_AEGS123.UpSetR.pdf"))
   p1
 dev.off()
+png(paste0(PLOT_loc, "/", Today, ".overlap.AEDB_AEGS123.UpSetR.png"))
+  p1
+dev.off()
 p1
 rm(p1)
 ```
@@ -1767,13 +1777,14 @@ c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_ran
 
 ------
 
-    Version:      v1.0.2
-    Last update:  2020-09-12
+    Version:      v1.0.3
+    Last update:  2021-03-11
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.3 Update to the gene list.
     * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
     * v1.0.1 Add an additional phenotype.
     * v1.0.0 Initial version. Fixed baseline table, added codes, and results. Created sample-files.
@@ -1787,7 +1798,7 @@ sessionInfo()
 ```
 
 ------
-<sup>&copy; 1979-2020 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
 ------
 
   

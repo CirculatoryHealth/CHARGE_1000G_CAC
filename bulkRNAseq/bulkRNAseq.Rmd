@@ -43,15 +43,17 @@ _Set locations, and the working directory ..._
 # GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
 
 ### MacBook
-ROOT_loc = "/Users/swvanderlaan"
-GENOMIC_loc = paste0(ROOT_loc, "/iCloud/Genomics")
+ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 
 ### Generic Locations
 AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
 AERNA_loc = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
+
+RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
 PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
+
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
