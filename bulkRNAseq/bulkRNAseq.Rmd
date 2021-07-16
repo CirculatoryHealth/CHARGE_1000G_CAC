@@ -47,12 +47,12 @@ ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 
 ### Generic Locations
-AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 AERNA_loc = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
 
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
 
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
@@ -62,10 +62,10 @@ PROJECTNAME="AERNA"
 
 cat("\nCreate a new analysis directory, including subdirectories.\n")
 # Analysis
-ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
-       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+ifelse(!dir.exists(file.path(RESULTS, "/",PROJECTNAME)), 
+       dir.create(file.path(RESULTS, "/",PROJECTNAME)), 
        FALSE)
-ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
+ANALYSIS_loc = paste0(RESULTS,"/",PROJECTNAME)
 
 # Plots
 ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
@@ -86,7 +86,7 @@ ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")),
 OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
 
 cat("\nSetting working directory and listing its contents.\n")
-setwd(paste0(PROJECT_loc))
+setwd(paste0(RESULTS))
 getwd()
 list.files()
 ```
@@ -168,9 +168,6 @@ install.packages.auto("AnnotationDbi")
 install.packages.auto("EnsDb.Hsapiens.v86")
 install.packages.auto("EnhancedVolcano")
 
-# CEMiTool
-# Ref: https://bioconductor.org/packages/release/bioc/vignettes/CEMiTool/inst/doc/CEMiTool.html
-install.packages.auto("CEMiTool")
 
 
 ```
@@ -270,9 +267,9 @@ library(openxlsx)
 # CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
 
 # update list
-CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/20210127_Overview_Genes_MMBos_Sander.xlsx"))
+CAC_gene_list <- read.xlsx(paste0(PROJECT_loc, "/SNP/Genes.xlsx"))
 
-CAC_variants <- read.xlsx(paste0(TARGET_loc, "/IndSigSNPsforSander.xlsx"))
+CAC_variants <- read.xlsx(paste0(PROJECT_loc, "/SNP/Variants.xlsx"))
 
 DT::datatable(CAC_gene_list)
 
@@ -284,7 +281,7 @@ We will construct a list of genes to map to our scRNAseq data.
 
 ```{r CAC targets for mapping}
 
-CAC_target_genes <- unlist(CAC_gene_list$symbol)
+CAC_target_genes <- unlist(CAC_gene_list$Gene)
 CAC_target_genes
 target_genes = CAC_target_genes
 ```
