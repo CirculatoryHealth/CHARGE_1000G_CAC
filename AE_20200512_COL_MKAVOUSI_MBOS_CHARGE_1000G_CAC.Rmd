@@ -49,19 +49,12 @@ rm(list = ls())
 _Set locations and working directories..._
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
-### Mac Pro
-# ROOT_loc = "/Volumes/EliteProQx2Media"
-# GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
-# AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
-# LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-# PLINK_loc=paste0(ROOT_loc,"/PLINK")
-# AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
-# PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/baseline")
+
 
 ### MacBook Air
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
-AEDB_loc = paste0(GENOMIC_loc, "/AE-AAA_GS_DBs")
+AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 
 PLINK_loc=paste0(ROOT_loc,"/PLINK")
@@ -118,26 +111,32 @@ _... a package-installation function ..._
 ```{r Function: installations}
 install.packages.auto <- function(x) { 
   x <- as.character(substitute(x)) 
-  if (isTRUE(x %in% .packages(all.available = TRUE))) { 
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
     eval(parse(text = sprintf("require(\"%s\")", x)))
   } else { 
     # Update installed packages - this may mean a full upgrade of R, which in turn
     # may not be warrented. 
-    #update.packages(ask = FALSE) 
-    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"http://cran-mirror.cs.uu.nl/\")", x)))
+    #update.install.packages.auto(ask = FALSE) 
+    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
   }
-  if (isTRUE(x %in% .packages(all.available = TRUE))) { 
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
     eval(parse(text = sprintf("require(\"%s\")", x)))
   } else {
-    source("http://bioconductor.org/biocLite.R")
+    if (!requireNamespace("BiocManager"))
+      install.packages("BiocManager")
+    BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
+    
+    # Code for older versions of R (<3.5.0)
+    # source("http://bioconductor.org/biocLite.R")
     # Update installed packages - this may mean a full upgrade of R, which in turn
     # may not be warrented.
-    #biocLite(character(), ask = FALSE) 
-    eval(parse(text = sprintf("biocLite(\"%s\")", x)))
+    # biocLite(character(), ask = FALSE) 
+    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
     eval(parse(text = sprintf("require(\"%s\")", x)))
   }
 }
 ```
+
 
 _... and load those packages._
 ```{r loading_packages, message=FALSE, warning=FALSE}
@@ -249,7 +248,8 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 
 Maryam Kavousi,
 Patricia Peyser,
-Maxime Bos
+Maxime Bos,
+Clint Miller
 
 *Project ID* 
 AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC
@@ -271,7 +271,7 @@ library(openxlsx)
 # update list
 gene_list <- read.xlsx(paste0(TARGET_loc, "/20210127_Overview_Genes_MMBos_Sander.xlsx"))
 
-variant_list <- read.xlsx(paste0(TARGET_loc, "/CandidateSNPsforSander.xlsx"))
+variant_list <- read.xlsx(paste0(TARGET_loc, "/20200912_CandidateSNPsforSander.xlsx"))
 
 DT::datatable(gene_list)
 
@@ -969,76 +969,6 @@ We are interested in the following variables at baseline.
 - stenosis
 - year of surgery
 - plaque characteristics
-- PCSK9
-
-### Fix things for `r TRAIT_OF_INTEREST`
-
-For this project we also fix the `r TRAIT_OF_INTEREST` levels for analyses. 
-
-> Measurement:
-> This was measured in citrate plasma, at pg/mL using a LUMINEX assay.
-
-```{r FixHormones}
-
-# Fix hormones
-attach(AEDB)
-AEDB[,"Plasma_PCSK9"] <- NA
-AEDB$Plasma_PCSK9 <- as.numeric(AEDB$PCSK9_plasma)
-AEDB$Plasma_PCSK9[PCSK9_plasma == -999] <- NA
-AEDB$Plasma_PCSK9[PCSK9_plasma == -888] <- NA
-AEDB$Plasma_PCSK9[PCSK9_plasma == -777] <- NA
-AEDB$Plasma_PCSK9[PCSK9_plasma == -666] <- NA
-
-detach(AEDB)
-
-AEDB$Plasma_PCSK9_rankNorm <- qnorm((rank(AEDB$PCSK9_plasma, na.last = "keep") - 0.5) / sum(!is.na(AEDB$PCSK9_plasma)))
-
-AEDB.temp <- subset(AEDB,  select = c("STUDY_NUMBER", "UPID", "Age", "Gender", "Hospital", "Artery_summary", "PCSK9_plasma", "Plasma_PCSK9", "Plasma_PCSK9_rankNorm"))
-require(labelled)
-AEDB.temp$Gender <- to_factor(AEDB.temp$Gender)
-AEDB.temp$Hospital <- to_factor(AEDB.temp$Hospital)
-AEDB.temp$Artery_summary <- to_factor(AEDB.temp$Artery_summary)
-
-DT::datatable(AEDB.temp[1:10,], caption = "Excerpt of the whole AEDB.", rownames = FALSE)
-
-rm(AEDB.temp)
-
-
-```
-
-
-```{r IRNT Hormones: Visualisation}
-library(labelled)
-AEDB$Gender <- to_factor(AEDB$Gender)
-AEDB$PCSK9_plasma <- as.numeric(AEDB$PCSK9_plasma)
-
-ggpubr::gghistogram(AEDB, "Plasma_PCSK9", 
-                    # y = "..count..", 
-                    color = "white",
-                    fill = "Gender",
-                    palette = c("#1290D9", "#DB003F"), 
-                    add = "median",
-                    #add_density = TRUE,
-                    rug = TRUE,
-                    #add.params =  list(color = "black", linetype = 2), 
-                    title = "PCSK9 (citrate-plasma)",
-                    xlab = "pg/mL", 
-                    ggtheme = theme_minimal())
-
-ggpubr::gghistogram(AEDB, "Plasma_PCSK9_rankNorm", 
-                    # y = "..count..", 
-                    color = "white",
-                    fill = "Gender",
-                    palette = c("#1290D9", "#DB003F"), 
-                    add = "median", 
-                    #add_density = TRUE,
-                    rug = TRUE,
-                    #add.params =  list(color = "black", linetype = 2), 
-                    title = "PCSK9 (citrate-plasma)",
-                    xlab = "pg/mL\ninverse-rank normalized", 
-                    ggtheme = theme_minimal())
-
-```
 
 
 ```{r Baseline AEDB: preparation}
@@ -1266,8 +1196,7 @@ basetable_vars = c("Hospital", "ORyear",
                    "Neutrophils_rankNorm", "MastCells_rankNorm",
                    "IPH.bin", "VesselDensity_rankNorm",
                    "Calc.bin", "Collagen.bin", 
-                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
-                   "Plasma_PCSK9", "Plasma_PCSK9_rankNorm")
+                   "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index")
 
 basetable_bin = c("Gender", 
                   "KDOQI", "BMI_WHO",
@@ -1489,8 +1418,7 @@ basetable_vars = c("Hospital",
                    "Calc.bin", "Collagen.bin", 
                    "Fat.bin_10", "Fat.bin_40", "OverallPlaquePhenotype", "Plaque_Vulnerability_Index",
                    "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
-                  "GWAS", "CHIP", "PCA",
-                  "Plasma_PCSK9", "Plasma_PCSK9_rankNorm")
+                  "GWAS", "CHIP", "PCA")
 
 basetable_bin = c("Gender", 
                   "KDOQI", "BMI_WHO", 
@@ -1548,15 +1476,15 @@ require(openxlsx)
 
 write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.BaselineTable.xlsx"), 
            AEGSselect.tableOne, 
-           row.names = TRUE, 
-           col.names = TRUE, 
-           sheetName = "AEGS_Baseline")
+           rowNames = TRUE, 
+           colNames = TRUE, 
+           sheetName = "AEGS_Baseline", overwrite = TRUE)
 
 write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.CEA.BaselineTable.xlsx"), 
            AEGSselect.CEA.tableOne, 
-           row.names = TRUE, 
-           col.names = TRUE, 
-           sheetName = "AEGS_Baseline_full")
+           rowNames = TRUE, 
+           colNames = TRUE, 
+           sheetName = "AEGS_Baseline_full", overwrite = TRUE)
 ```
 
 # SampleLists
@@ -1578,7 +1506,8 @@ temp <- subset(AEGS,
                           "Sex", "Age", "ORyear", 
                           "Calc.bin", "Collagen.bin", 
                           "Fat.bin_10", "Fat.bin_40", "IPH.bin", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm")) # Select some phenotype of interest
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
+                          "Plaque_Vulnerability_Index")) # Select some phenotype of interest
 dim(temp)
 
 # Fix things
@@ -1628,7 +1557,8 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
                                   Sex, Age, ORyear, 
                                   Calcification, Collagen, 
                                   Fat10, Fat40, IPH, 
-                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm)  %>%
+                                  SMC_rankNorm, MAC_rankNorm, Neutrophils_rankNorm, MastCells_rankNorm, VesselDensity_rankNorm,
+                                  Plaque_Vulnerability_Index)  %>%
   mutate_if(is.numeric, as.character) %>%
   mutate(SAMPLE_TYPE = gsub(' ', '_', SAMPLE_TYPE)) %>%
   add_row(.before = 1, 
@@ -1640,7 +1570,8 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
           Sex = "D", Age = "C", ORyear = "C", 
           Calcification = "B", Collagen = "B", 
           Fat10 = "B", Fat40 = "B", IPH = "B", 
-          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
+          SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
+          Plaque_Vulnerability_Index = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
   print()
 dim(sample_file_aegs)
 
@@ -1701,7 +1632,8 @@ AEGS123_AllChrQC <- subset(AEGS123_AllChr,
                           "Sex", "Age", "ORyear", 
                           "Calcification", "Collagen", 
                           "Fat10", "Fat40", "IPH", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm"))
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
+                          "Plaque_Vulnerability_Index"))
 
 AEGS123_AllChrQC_reorder <-AEGS123_AllChrQC[order(AEGS123_AllChrQC$ID_2),] # remember: ID_2 is the order of samples
 
@@ -1715,7 +1647,8 @@ AEGS123_AllChrQC_filtered <- subset(AEGS123_AllChr,
                           "Sex", "Age", "ORyear", 
                           "Calcification", "Collagen", 
                           "Fat10", "Fat40", "IPH", 
-                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm"))
+                          "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
+                          "Plaque_Vulnerability_Index"))
 
 fwrite(AEGS123_AllChrQC_reorder,
        file = paste0(SNP_loc, "/",Today,".",PROJECTNAME,".AEGS123.chrX.sample"),
@@ -1767,7 +1700,10 @@ Here we create a `phenotypes.txt` file used by **GWASToolKit** for analysis.
 
 ```{r create phenotypesList}
 library(tidyverse)
-c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm") %>% write_lines(paste0(SNP_loc, "/phenotypes.txt"))
+c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_rankNorm", "Neutrophils_rankNorm", "MastCells_rankNorm", "VesselDensity_rankNorm",
+  "Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.txt"))
+
+c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi.txt"))
 
 
 ```
@@ -1777,13 +1713,14 @@ c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_ran
 
 ------
 
-    Version:      v1.0.3
-    Last update:  2021-03-11
+    Version:      v1.0.4
+    Last update:  2021-09-24
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.4 Update with PVI. Removed PCSK9.
     * v1.0.3 Update to the gene list.
     * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
     * v1.0.1 Add an additional phenotype.
@@ -1796,6 +1733,13 @@ c("Calcification", "Collagen", "Fat10", "Fat40", "IPH", "SMC_rankNorm", "MAC_ran
 ```{r eval = TRUE}
 sessionInfo()
 ```
+
+
+# Saving environment
+```{r Saving}
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".results.RData"))
+```
+
 
 ------
 <sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
