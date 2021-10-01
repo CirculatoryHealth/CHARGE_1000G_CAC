@@ -43,7 +43,7 @@ We will clean the environment, setup the locations, define colors, and create a 
 
 _Clean the environment._
 ```{r echo = FALSE}
-rm(list = ls())
+# rm(list = ls())
 ```
 
 _Set locations and working directories..._
@@ -259,8 +259,9 @@ AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC
 
 Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ susceptibility loci to the single-cell carotid plaque data. These are given in:
 
-- `IndSigSNPsforSander.xlsx`
-- `20210127_Overview_Genes_MMBos_Sander.xlsx`
+- `Variants.xlsx - sheet Variants`, originally from `IndSigSNPsforSander.xlsx`
+- `Genes.xlsx`, originally from `20210127_Overview_Genes_MMBos_Sander.xlsx`
+- `Variants.xlsx - sheet CredibleSet`, originally from `20210127_Overview_Genes_MMBos_Sander.xlsx`
 
 ```{r CAC targets}
 library(openxlsx)
@@ -269,13 +270,15 @@ library(openxlsx)
 # gene_list <- read.xlsx(paste0(TARGET_loc, "/GeneList_15042020.xlsx"))
 
 # update list
-gene_list <- read.xlsx(paste0(TARGET_loc, "/20210127_Overview_Genes_MMBos_Sander.xlsx"))
+gene_list <- read.xlsx(paste0(SNP_loc, "/Genes.xlsx"))
 
-variant_list <- read.xlsx(paste0(TARGET_loc, "/20200912_CandidateSNPsforSander.xlsx"))
+variant_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "Variants")
+credset_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "CredibleSet")
 
 DT::datatable(gene_list)
 
 DT::datatable(variant_list)
+DT::datatable(credset_list)
 
 ```
 
@@ -1664,17 +1667,33 @@ DT::datatable(AEGS123_AllChrQC, caption = "AEGS: final sample list of genotyped 
 
 # GWASToolKit preparation
 
-## VariantLists
+## VariantLists: top SNPs
 
-Here we create a `variantlist.txt` file used by **GWASToolKit** for analysis.
+Here we create a `variantlist.txt` file used by **GWASToolKit** for analysis.These are the variants with LD r<sup>2</sup> => 0.6 around each of the 15 top SNPs associated with CAC.
 
 ```{r create variantList}
 variant_list
 
-temp <- subset(variant_list, select = c("variantid", "chr", "pos"))
+temp <- subset(variant_list, select = c("VariantID", "Chr", "BP"))
 
 fwrite(temp,
        file = paste0(SNP_loc, "/variantlist.txt"),
+       na = "NA", sep = "\t", quote = FALSE,
+       row.names = FALSE, col.names = FALSE,
+       showProgress = TRUE, verbose = TRUE)
+rm(temp)
+```
+## VariantLists: Credible Set
+
+Here we create a `crediblesetlist.txt` file used by **GWASToolKit** for analysis.These are the variants in the 95% credible set of causal variants for the 15 top SNPs associated with CAC.
+
+```{r create credset_list}
+credset_list
+
+temp <- subset(credset_list, select = c("VariantID", "Chr", "BP"))
+
+fwrite(temp,
+       file = paste0(SNP_loc, "/crediblesetlist.txt"),
        na = "NA", sep = "\t", quote = FALSE,
        row.names = FALSE, col.names = FALSE,
        showProgress = TRUE, verbose = TRUE)
@@ -1713,13 +1732,14 @@ c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi
 
 ------
 
-    Version:      v1.0.4
-    Last update:  2021-09-24
+    Version:      v1.0.5
+    Last update:  2021-10-01
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.5 Update analysis with credible set SNPs.
     * v1.0.4 Update with PVI. Removed PCSK9.
     * v1.0.3 Update to the gene list.
     * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
