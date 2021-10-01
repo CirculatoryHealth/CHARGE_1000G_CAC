@@ -28,9 +28,10 @@ The analysis will be run using the following phenotypes.....:
                                           STARTING SUMMARISATION
 
 Please be patient...this can take a long time depending on the number of files.
-We started at: Fri Oct 1 12:50:54 CEST 2021
+We started at: Fri Oct 1 13:30:00 CEST 2021
 
-Summary directory does exist.
+Summary directory doesn't exist: making it.
+mkdir: created directory ‘/hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/CAC_overallplaque_PVI_credset/summary.VARIANT’
 
 Summarising data...
 * Copying results for [ Plaque_Vulnerability_Index ]...
