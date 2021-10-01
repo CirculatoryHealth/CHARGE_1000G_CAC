@@ -1,0 +1,2 @@
+slurmstepd: error: _prec_extra: Could not find task_cpuacct_cg, this should never happen
+slurmstepd: error: _prec_extra: Could not find task_memory_cg, this should never happen

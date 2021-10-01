@@ -1,0 +1,21 @@
+# Analysis: "SNPTEST 2.5.4-beta3 analysis, started 2021-10-01 12:21:44"
+#  started: 2021-10-01 12:25:58
+# 
+# Analysis properties:
+#   -assume_chromosome 10 (user-supplied)
+#   -cov_names Age Sex PC1 PC2 CHIP ORyear (user-supplied)
+#   -data /hpc/dhl_ec/data/_ae_originals/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11/aegs.qc.1kgp3hrcr11.idfix.chr10.vcf.gz /hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/20210924.CAC.AEGS123.sample (user-supplied)
+#   -exclude_samples_where SELECTION==not_selected (user-supplied)
+#   -frequentist 1 (user-supplied)
+#   -hwe  (user-supplied)
+#   -log /hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/CAC_overallplaque_credset/snptest_results/Fat40/AEGS.VARIANT.1kGp3v5GoNL5.Fat40.EXCL_DEFAULT.10_75924605.chr10.log (user-supplied)
+#   -lower_sample_limit 10 (user-supplied)
+#   -method expected (user-supplied)
+#   -o /hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/CAC_overallplaque_credset/snptest_results/Fat40/AEGS.VARIANT.1kGp3v5GoNL5.Fat40.EXCL_DEFAULT.10_75924605.chr10.out (user-supplied)
+#   -pheno Fat40 (user-supplied)
+#   -snpid 10:75924605 (user-supplied)
+#   -use_raw_phenotypes  (user-supplied)
+# 
+alternate_ids rsid chromosome position alleleA alleleB index average_maximum_posterior_call info cohort_1_AA cohort_1_AB cohort_1_BB cohort_1_NULL all_AA all_AB all_BB all_NULL all_total cases_AA cases_AB cases_BB cases_NULL cases_total controls_AA controls_AB controls_BB controls_NULL controls_total all_maf cases_maf controls_maf missing_data_proportion cohort_1_hwe cases_hwe controls_hwe het_OR het_OR_lower het_OR_upper hom_OR hom_OR_lower hom_OR_upper all_OR all_OR_lower all_OR_upper frequentist_add_pvalue frequentist_add_info frequentist_add_beta_1 frequentist_add_se_1 comment
+10:75924605 10:75924605 10 75924605 G C 1 1 1 132 592 781 0 132 592 781 0 1505 34 146 233 0 413 98 446 548 0 1092 0.284385 0.25908 0.293956 0 0.205098 0.123145 0.609834 0.943551 0.612215 1.45421 1.22553 0.805913 1.86362 1.19066 0.993688 1.42668 0.0986174 NA 0.153929 0.0937584 NA
+# Completed successfully at 2021-10-01 12:25:58
