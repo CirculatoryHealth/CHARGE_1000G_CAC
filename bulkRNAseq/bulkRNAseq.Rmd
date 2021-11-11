@@ -1519,8 +1519,8 @@ expression_wide2 <- expression_wide %>%
 
 expression_long2 <- expression_wide2 %>%
   gather(gene, expression_value, -study_number) %>%
-  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Mean of 1,000 genes"))) %>%
-  mutate(gene = factor(gene, levels = c("Mean of 1,000 genes", target_genes_qc)))
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Random genes"))) %>%
+  mutate(gene = factor(gene, levels = c("Random genes", target_genes_qc)))
 
 mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
 # head(expression_long2)

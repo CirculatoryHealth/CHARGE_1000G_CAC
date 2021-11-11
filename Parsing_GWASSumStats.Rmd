@@ -1,0 +1,383 @@
+---
+title: "Parsing 1000G GWAS summary statistics for CAC."
+author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    cache: yes
+    code_folding: hide
+    collapse: yes
+    df_print: paged
+    fig.align: center
+    fig_caption: yes
+    fig_height: 6
+    fig_retina: 2
+    fig_width: 7
+    highlight: tango
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+mainfont: Arial
+subtitle: "A 'druggable-MI-targets' project"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r global_options, include = FALSE}
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/', 
+                      wwarning = TRUE, # show warnings during codebook generation
+  message = TRUE, # show messages during codebook generation
+  error = TRUE, # do not interrupt codebook generation in case of errors,
+                # usually better for debugging
+  echo = TRUE,  # show R code
+                      eval = TRUE)
+ggplot2::theme_set(ggplot2::theme_minimal())
+pander::panderOptions("table.split.table", Inf)
+```
+
+# Setup
+We will clean the environment, setup the locations, define colors, and create a datestamp.
+
+_Clean the environment._
+```{r echo = FALSE}
+# rm(list = ls())
+```
+
+_Set locations and working directories..._
+```{r LocalSystem, echo = FALSE}
+### Operating System Version
+
+
+### MacBook Air
+ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
+AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
+LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
+
+PLINK_loc=paste0(ROOT_loc,"/PLINK")
+AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
+MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
+
+GWAS_loc=paste0(PLINK_loc,"/_GWAS_Datasets/_CHARGE_CAC")
+
+PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+
+# use this if there is relevant information here.
+TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+
+### SOME VARIABLES WE NEED DOWN THE LINE
+TRAIT_OF_INTEREST = "CAC" # Phenotype
+PROJECTNAME = "CAC"
+
+cat("\nCreate a new analysis directory...\n")
+ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
+       FALSE)
+ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
+       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
+       FALSE)
+PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
+
+ifelse(!dir.exists(file.path(PLOT_loc, "/QC")), 
+       dir.create(file.path(PLOT_loc, "/QC")), 
+       FALSE)
+QC_loc = paste0(PLOT_loc,"/QC")
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
+       FALSE)
+OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
+
+ifelse(!dir.exists(file.path(ANALYSIS_loc, "/BASELINE")), 
+       dir.create(file.path(ANALYSIS_loc, "/BASELINE")), 
+       FALSE)
+BASELINE_loc = paste0(ANALYSIS_loc, "/BASELINE")
+
+ifelse(!dir.exists(file.path(PROJECT_loc, "/SNP")), 
+       dir.create(file.path(PROJECT_loc, "/SNP")), 
+       FALSE)
+SNP_loc = paste0(PROJECT_loc, "/SNP")
+
+setwd(paste0(PROJECT_loc))
+getwd()
+list.files()
+
+```
+
+_... a package-installation function ..._
+```{r Function: installations}
+install.packages.auto <- function(x) { 
+  x <- as.character(substitute(x)) 
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else { 
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented. 
+    #update.install.packages.auto(ask = FALSE) 
+    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
+  }
+  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  } else {
+    if (!requireNamespace("BiocManager"))
+      install.packages("BiocManager")
+    BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
+    
+    # Code for older versions of R (<3.5.0)
+    # source("http://bioconductor.org/biocLite.R")
+    # Update installed packages - this may mean a full upgrade of R, which in turn
+    # may not be warrented.
+    # biocLite(character(), ask = FALSE) 
+    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
+    eval(parse(text = sprintf("require(\"%s\")", x)))
+  }
+}
+```
+
+
+_... and load those packages._
+```{r loading_packages, message=FALSE, warning=FALSE}
+install.packages.auto("readr")
+install.packages.auto("optparse")
+install.packages.auto("tools")
+install.packages.auto("dplyr")
+install.packages.auto("tidyr")
+install.packages.auto("naniar")
+
+# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
+# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
+# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
+library(data.table)
+
+install.packages.auto("tidyverse")
+install.packages.auto("knitr")
+install.packages.auto("DT")
+install.packages.auto("eeptools")
+
+install.packages.auto("haven")
+install.packages.auto("tableone")
+
+install.packages.auto("BlandAltmanLeh")
+
+# Install the devtools package from Hadley Wickham
+install.packages.auto('devtools')
+
+# for plotting
+install.packages.auto("pheatmap")
+install.packages.auto("forestplot")
+install.packages.auto("ggplot2")
+
+install.packages.auto("ggpubr")
+
+install.packages.auto("UpSetR")
+
+devtools::install_github("thomasp85/patchwork")
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+### UtrechtScienceParkColoursScheme
+###
+### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
+### Forsomefunctionsyoushoulddividethesenumbersby255.
+###
+###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
+###---------------------------------------------------------------------------------------
+###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
+###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
+###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
+###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
+###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
+###	6	  pink			      #D5267B (213,38,123)				      =>	6		
+###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
+###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
+###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
+###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
+###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
+###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
+###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
+###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
+###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
+###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
+###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
+###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
+###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
+###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
+###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
+###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
+###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
+###	24	green			      #49A01D (73,160,29)				      =>	24/Y
+###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
+###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
+###
+###	ADDITIONAL COLORS
+###	27	midgrey			#D7D8D7
+###	28	verylightgrey	#ECECEC"
+###	29	white			#FFFFFF
+###	30	black			#000000
+###----------------------------------------------------------------------------------------------
+
+uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
+                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
+                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
+                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
+                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+
+uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
+                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
+                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
+                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
+                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
+                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
+### ----------------------------------------------------------------------------
+```
+
+# Introduction
+
+We need to parse and sort the 1000G GWAS CAC data for sharing summary statistics and use in [my.locuszoom.org](https://my.locuszoom.org).
+
+# Load data
+
+We need to load the data first.
+```{r}
+
+gwas_sumstatsLZ <- fread(paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.forMyLocusZoom.txt.gz"),
+                         showProgress = TRUE)
+
+```
+
+
+# Summary
+
+We provide some summary statistics here.
+
+```{r}
+cat("Getting a head (top) of the summary statistics.\n")
+DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics.") 
+```
+
+```{r}
+cat("\n\nGetting summary statistics.\n")
+summary(gwas_sumstatsLZ)
+```
+
+```{r}
+cat(paste0("\nTotal number of variants: "), format(length(gwas_sumstatsLZ$chr_vcf), big.mark = ","),".\n")
+
+cat(paste0("\nAvailable chromosomes: "), format(unique(gwas_sumstatsLZ$chr_vcf), big.mark = ","),".\n")
+
+cat("\n\nEffect allele frequency summary: \n")
+summary(gwas_sumstatsLZ$Freq1)
+
+
+cat("\nEffect size summary: \n")
+summary(gwas_sumstatsLZ$Effect)
+
+
+```
+## Plotting
+
+```{r}
+
+gghistogram(
+  gwas_sumstatsLZ,
+  x = "Effect",
+  y = "..count..",
+  color = uithof_color[16],
+  fill = uithof_color[16],
+  linetype = "solid",
+  alpha = 0.5,
+  bins = 50,
+  title = "Effect allele frequency distribution",
+  xlab = "effect allele frequency",
+  ylab = "counts",
+  add = "median",
+  add.params = list(linetype = "dashed"),
+  ggtheme = theme_pubr())
+```
+
+
+```{r}
+
+gghistogram(
+  gwas_sumstatsLZ,
+  x = "Effect",
+  y = "..count..",
+  color = uithof_color[3],
+  fill = uithof_color[3],
+  linetype = "solid",
+  alpha = 0.5,
+  bins = 50,
+  title = "Effect size distribution",
+  xlab = "effect size",
+  ylab = "counts",
+  add = "median",
+  add.params = list(linetype = "dashed"),
+  ggtheme = theme_pubr())
+
+```
+
+
+
+# Parsing
+
+Sorting the summary statistics.
+```{r}
+
+gwas_sumstatsLZa <- dplyr::arrange(gwas_sumstatsLZ, chr_vcf, position_vcf)
+
+head(gwas_sumstatsLZa)
+
+```
+
+```{r}
+fwrite(gwas_sumstatsLZa, 
+       paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.forMyLocusZoom.sort.txt"),
+       quote = FALSE, sep = "\t",
+       row.names = FALSE, col.names = TRUE,
+       showProgress = TRUE)
+```
+
+
+# Session information
+
+------
+
+    Version:      v1.0.0
+    Last update:  2021-10-05
+    Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
+    Description:  Script to parse GWAS summary statistics.
+    Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
+    
+    Changes log
+    * v1.0.0 Initial version. 
+
+------
+
+```{r eval = TRUE}
+sessionInfo()
+```
+
+
+# Saving environment
+```{r Saving}
+rm(gwas_sumstatsLZ)
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".GWASSumStats.RData"))
+```
+
+
+------
+<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+------
+
+  
