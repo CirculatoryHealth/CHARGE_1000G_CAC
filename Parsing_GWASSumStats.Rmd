@@ -255,6 +255,11 @@ gwas_sumstatsLZ <- fread(paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.forMyL
                          showProgress = TRUE)
 
 ```
+```{r}
+
+gwas_sumstatsALL <- fread(paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.organized.txt.gz"),
+                         showProgress = TRUE)
+```
 
 
 # Summary
@@ -263,7 +268,10 @@ We provide some summary statistics here.
 
 ```{r}
 cat("Getting a head (top) of the summary statistics.\n")
-DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics.") 
+DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
+
+
+DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
 ```
 
 ```{r}
