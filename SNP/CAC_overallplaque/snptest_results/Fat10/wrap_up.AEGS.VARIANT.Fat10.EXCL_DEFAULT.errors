@@ -661,7 +661,6 @@ awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
-slurmstepd: error: _is_a_lwp: open() /proc/27617/status failed: No such file or directory
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted
 awk: cmd. line:1: (FILENAME=- FNR=1) fatal: division by zero attempted

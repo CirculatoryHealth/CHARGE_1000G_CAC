@@ -38,7 +38,7 @@ The analysis will be run using the following phenotypes.....:
                                           STARTING SUMMARISATION
 
 Please be patient...this can take a long time depending on the number of files.
-We started at: Fri Nov 12 01:08:32 CET 2021
+We started at: Fri Nov 12 13:39:16 CET 2021
 
 Summary directory doesn't exist: making it.
 mkdir: created directory ‘/hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/CAC_overallplaque/summary.VARIANT’
