@@ -49,3 +49,6 @@ WGCNA
 _archived
 *.zip
 *.sample
+_gsdata_/
+~
+\~$*
