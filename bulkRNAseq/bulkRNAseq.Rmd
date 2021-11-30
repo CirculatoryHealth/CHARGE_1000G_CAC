@@ -1415,19 +1415,18 @@ Based on the above graphs we can see that some of the genes are not measured/ava
 - _C6orf195_ => _LINC01600_ replacement, not found
 - _C9orf53_ => _CDKN2A-DT_ replacement, not found
 - _AL137026.1_ ==> not found
-- _DUPD1_ => _DUSP29_, ==> not found
 - _RP11-145E5.5_ ==> not found
-- _PVRL2_ => _NECTIN2_ replacement, not found
-- _KIAA1462_ => _JCAD_ replacement, not found
+- _ZNF32_ ==> _KOX30_ replacement, not found
+- _BCAM_ ==> _CD239_ replacement, not found
+- _DUPD1_ ==> _DUSP27_ replacement, not found
+- _PVRL2_ ==> _NECTIN2_ replacement, not found
 
 ```{r list target genes}
 target_genes
 ```
 
 ```{r filter target genes}
-
-target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2",
-                     "RP1-257A7.4", "RP1-257A7.5", "KIAA1462")
+target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2")
 
 temp = target_genes[!target_genes %in% target_genes_rm]
 
@@ -1436,7 +1435,7 @@ target_genes_qc <- c(temp)
 target_genes_qc
 
 # for debug
-target_genes_qc_replace <- c("LINC01600", "JCAD", "DUSP29", "NECTIN2")
+target_genes_qc_replace <- c("LINC01600", "DUSP27", "NECTIN2")
 
 
 ```
@@ -1988,8 +1987,8 @@ rm(temp)
 
 ------
 
-    Version:      v1.0.5
-    Last update:  2021-03-11
+    Version:      v1.0.6
+    Last update:  2021-11-30
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -2006,6 +2005,7 @@ rm(temp)
     
     
     **Changes log**
+    * v1.0.6 Update to the gene list.
     * v1.0.5 Update to the gene list.
     * v1.0.4 Add correlation analysis and heatmap for plaque vulnerability index.
     * v1.0.3 Add gene expression as a function of plaque vulnerability index.
