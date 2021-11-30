@@ -8,4 +8,3 @@ MAC_rankNorm
 Neutrophils_rankNorm
 MastCells_rankNorm
 VesselDensity_rankNorm
-Plaque_Vulnerability_Index
