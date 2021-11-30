@@ -1,0 +1,36 @@
+[1m+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[00m
+[1m                                          GWASTOOLKIT WRAPPER[00m
+[1m                                  WRAPPING UP SNPTEST ANALYSIS RESULTS[00m
+[1m[00m
+[1m Version    : v1.2.6[00m
+[1m[00m
+[1m Last update: 2018-03-29[00m
+[1m Written by:  Sander W. van der Laan (s.w.vanderlaan-2@umcutrecht.nl).[00m
+[1m[00m
+[1m Testers:     - Saskia Haitjema (s.haitjema@umcutrecht.nl)[00m
+[1m              - Aisha Gohar (a.gohar@umcutrecht.nl)[00m
+[1m              - Jessica van Setten (j.vansetten@umcutrecht.nl)[00m
+[1m              - Jacco Schaap (j.schaap-2@umcutrecht.nl)[00m
+[1m              - Tim Bezemer (t.bezemer-2@umcutrecht.nl)[00m
+[1m[00m
+[1m Description: Wrapping up all files from a SNPTEST analysis into one file for ease [00m
+[1m              of downstream (R) analyses.[00m
+[1m[00m
+[1m+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[00m
+All arguments are passed. These are the settings:
+The output directory is.....................................: /hpc/dhl_ec/svanderlaan/projects/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/SNP/CAC_overallplaque/snptest_results
+The following dataset will be used..........................: AEGS
+The following analysis type will be run.....................: VARIANT
+The reference used..........................................: 1kGp3v5GoNL5
+The following phenotype was analysed and is wrapped up......: SMC_rankNorm
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                WRAPPING UP SNPTEST ANALYSIS RESULTS
+
+Please be patient...this can take a long time depending on the number of files.
+We started at: Tue Nov 30 14:34:07 CET 2021
+
+
+
+Finished. 
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
