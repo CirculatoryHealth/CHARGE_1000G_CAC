@@ -45,14 +45,15 @@ _Set locations, and the working directory ..._
 ### MacBook
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
+STORAGE_loc = "/Volumes/LaCie/PLINK"
 
 ### Generic Locations
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-AERNA_loc = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AERNA/QC")
+AERNA_loc = paste0(STORAGE_loc, "/_AE_ORIGINALS/AERNA/QC")
 
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
-RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
+PROJECT_loc = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+RESULTS = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
 
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 

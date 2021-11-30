@@ -45,15 +45,16 @@ _Set locations, and the working directory ..._
 ### MacBook
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
+STORAGE_loc = "/Volumes/LaCie/PLINK"
 
 ### Generic Locations
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 
-RAWDATA = paste0(ROOT_loc, "/PLINK/_AE_ORIGINALS/AESCRNA/prepped_data")
+RAWDATA = paste0(STORAGE_loc, "/_AE_ORIGINALS/AESCRNA/prepped_data")
 
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
-RESULTS = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+PROJECT_loc = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+RESULTS = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
 
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
@@ -278,8 +279,10 @@ Here we load the latest dataset from our Athero-Express Single Cell RNA experime
 
 ```{r LoadData}
 
-scRNAseqData <- readRDS(paste0(RAWDATA, "/Seuset_40_patients/20210217_PlaqView_38_pts.RDS"))
+# scRNAseqData <- readRDS(paste0(RAWDATA, "/Seuset_40_patients/20210217_PlaqView_38_pts.RDS"))
+scRNAseqData <- readRDS(paste0(RAWDATA, "/Seuset_40_patients/Seuset_40_patients.RDS"))
 scRNAseqData
+N_GENES=18283
 
 ```
 
@@ -290,25 +293,19 @@ We will rename the cell types to human readable names.
 ### change names for clarity
 backup.scRNAseqData = scRNAseqData
 # get the old names to change to new names
-UMAPPlot(backup.scRNAseqData, label = FALSE, pt.size = 1.25, label.size = 4, group.by = "ident")
+UMAPPlot(scRNAseqData, label = FALSE, pt.size = 1.25, label.size = 4, group.by = "ident")
 
-levels(unique(backup.scRNAseqData@active.ident))
-
-# "CD3+CD8A+ T cells I"         "CD3+CD8A+ T cells III"       "CD3+CD4+ T Cells I"          "CD14+CD68+ Macrophages I"   
-# "Mixed Cells I"               "CD3+CD8A+ T Cells II"        "CD14+CD68+ Macrophages II"   "CD3+CD4+ T Cells II"        
-# "ACTA2+ Smooth Muscle Cells"  "CD34+ Endothelial Cells I"   "CD34+ Endothelial Cells II"  "NCAM1+ Natural Killer Cells"
-# "Mixed Cells II"              "CD79A+ B Cells I"            "CD14+CD68+ Macrophages III"  "CD3+ Regulatory T Cells"    
-# "KIT+ Mast Cells"             "CD79A+ B Cells II" 
-
+unique(scRNAseqData@active.ident)
+                                      
 celltypes <- c("CD14+CD68+ Macrophages I" = "CD14+CD68+ M I", 
                "CD14+CD68+ Macrophages II" = "CD14+CD68+ M II", 
                "CD14+CD68+ Macrophages III" = "CD14+CD68+ M III",
-               "CD3+CD8A+ T cells I" = "CD3+CD8A+ T I",
-               "CD3+CD8A+ T Cells II" = "CD3+CD8A+ T II ", 
-               "CD3+CD8A+ T cells III" = "CD3+CD8A+ T III", 
+               "CD3+CD8+ T cells I" = "CD3+CD8A+ T I",
+               "CD3+CD8A+ T Cells II" = "CD3+CD8A+ T II", 
+               "CD3+CD8 T cells III" = "CD3+CD8A+ T III", 
                "CD3+CD4+ T Cells I" = "CD3+CD4+ T I", 
                "CD3+CD4+ T Cells II" = "CD3+CD4+ T II", 
-               "CD3+ Regulatory T Cells" = "CD3+ Treg", 
+               "CD3+CD4+ T Cells III" = "CD3+ Treg", 
                "CD34+ Endothelial Cells I" = "CD34+ EC I", 
                "CD34+ Endothelial Cells II" = "CD34+ EC II", 
                "Mixed Cells I" = "Mixed I", 
@@ -319,9 +316,8 @@ celltypes <- c("CD14+CD68+ Macrophages I" = "CD14+CD68+ M I",
                "CD79A+ B Cells I" = "CD79A+ B I", 
                "CD79A+ B Cells II" = "CD79A+ B II")
 
-scRNAseqData <- Seurat::RenameIdents(object = backup.scRNAseqData, 
+scRNAseqData <- Seurat::RenameIdents(object = scRNAseqData, 
                                        celltypes)
-UMAPPlot(scRNAseqData, label = FALSE, pt.size = 1.25, label.size = 4, group.by = "ident")
 ```
 
 ```{r Change cell cummunity names - new plot}
@@ -952,7 +948,8 @@ Writing the baseline table to Excel format.
 # Write basetable
 require(openxlsx)
 write.xlsx(file = paste0(OUT_loc, "/",Today,".",PROJECTNAME,".AE.BaselineTable.scRNAseq.xlsx"), 
-           format(scRNAseqDataMetaAE.all.tableOne, digits = 5, scientific = FALSE) , rowNames = TRUE, colNames = TRUE)
+           format(scRNAseqDataMetaAE.all.tableOne, digits = 5, scientific = FALSE) , 
+           rowNames = TRUE, colNames = TRUE, overwrite = TRUE)
 
 
 ```
@@ -1050,27 +1047,26 @@ Several genes are not present or have different names, these are listed here, an
 - _C6orf195_ => _LINC01600_ replacement, not found
 - _C9orf53_ => _CDKN2A-DT_ replacement, not found
 - _AL137026.1_ ==> not found
-- _DUPD1_ => _DUSP29_ replacement, not found
 - _RP11-145E5.5_ ==> not found
-- _PVRL2_ => _NECTIN2_ replacement
-- _KIAA1462_ => _JCAD_ replacement
-- _ZNF32_ ==> not found
-- _BCAM_ ==> not found
+- _ZNF32_ ==> _KOX30_ replacement, not found
+- _BCAM_ ==> _CD239_ replacement, not found
+- _DUPD1_ ==> _DUSP27_ replacement
+- _PVRL2_ ==> _NECTIN2_ replacement
 
 ```{r list target genes}
+length(target_genes)
 target_genes
 ```
 
 ### Expression in cell communities
 ```{r Visualisation: preparation}
 
-target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2",
-                     "RP1-257A7.4", "RP1-257A7.5", "KIAA1462",
-                     "ZNF32", "BCAM")
+target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "RP11-145E5.5",
+                     "ZNF32", "BCAM", "DUPD1", "PVRL2")
 
 temp = target_genes[!target_genes %in% target_genes_rm]
 
-target_genes_qc <- c(temp, "NECTIN2", "JCAD")
+target_genes_qc <- c(temp, "DUSP27", "NECTIN2")
 
 target_genes_qc
 
@@ -1086,6 +1082,7 @@ p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
 
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.png"), plot = last_plot())
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.ps"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.Targets.pdf"), plot = last_plot())
 
 rm(p1)
 
@@ -1100,7 +1097,14 @@ rm(p1)
 ```
 
 ```{r Visualisation: Targets}
-# VlnPlot(scRNAseqData, features = "DUSP29")
+# VlnPlot(scRNAseqData, features = "DUSP27")
+
+# VlnPlot files
+ifelse(!dir.exists(file.path(PLOT_loc, "/VlnPlot")), 
+       dir.create(file.path(PLOT_loc, "/VlnPlot")), 
+       FALSE)
+VlnPlot_loc = paste0(PLOT_loc, "/VlnPlot")
+
 
 for (GENE in target_genes_qc){
   print(paste0("Projecting the expression of ", GENE, "."))
@@ -1111,8 +1115,9 @@ for (GENE in target_genes_qc){
     theme(axis.title.x = element_text(color = "#000000", size = 14, face = "bold"), 
             axis.title.y = element_text(color = "#000000", size = 14, face = "bold"), 
             legend.position = "none")
-    ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".png"), plot = last_plot())
-    ggsave(paste0(PLOT_loc, "/", Today, ".VlnPlot.",GENE,".ps"), plot = last_plot())
+    ggsave(paste0(VlnPlot_loc, "/", Today, ".VlnPlot.",GENE,".png"), plot = last_plot())
+    ggsave(paste0(VlnPlot_loc, "/", Today, ".VlnPlot.",GENE,".ps"), plot = last_plot())
+    ggsave(paste0(VlnPlot_loc, "/", Today, ".VlnPlot.",GENE,".pdf"), plot = last_plot())
   
   # print(vp1)
   
@@ -1140,6 +1145,7 @@ Here we project genes to only the broad cell communities:
 
 Comparison between the macrophages cell communities (_CD14/CD68_<sup>+</sup>), and all other communities.
 ```{r Visualisation: Volcano MAC calculate}
+
 N_GENES=20552
 MAC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD14+CD68+ M I", 
@@ -1149,7 +1155,7 @@ MAC.markers <- FindMarkers(object = scRNAseqData,
                                       #"CD14+CD68+ M II", 
                                       #"CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1224,7 +1230,7 @@ SMC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1299,7 +1305,7 @@ EC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1369,7 +1375,7 @@ Comparison between the T-cell communities (_CD3/CD4/CD8_<sup>+</sup>), and all o
 N_GENES=20552
 TC.markers <- FindMarkers(object = scRNAseqData, 
                           ident.1 = c("CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1378,7 +1384,7 @@ TC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       # "CD3+CD8+ T I",
-                                      # "CD3+CD8A+ T II ", 
+                                      # "CD3+CD8A+ T II", 
                                       # "CD3+CD8 T III", 
                                       # "CD3+CD4+ T I", 
                                       # "CD3+CD4+ T II", 
@@ -1454,7 +1460,7 @@ BC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1527,7 +1533,7 @@ MC.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1602,7 +1608,7 @@ NK.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1677,7 +1683,7 @@ MIXED.markers <- FindMarkers(object = scRNAseqData,
                                       "CD14+CD68+ M II", 
                                       "CD14+CD68+ M III",
                                       "CD3+CD8A+ T I",
-                                      "CD3+CD8A+ T II ", 
+                                      "CD3+CD8A+ T II", 
                                       "CD3+CD8A+ T III", 
                                       "CD3+CD4+ T I", 
                                       "CD3+CD4+ T II", 
@@ -1752,14 +1758,11 @@ Some genes were not found in our data.
 - LOC100130539 (novel)
 
 ```{r}
-library(RColorBrewer)
-# "C6orf195"     "EDN1"         "PHACTR1"      "TBC1D7"       "GFOD1"        "ENPP1"        "ENPP3"        "IGFBP3"      
-# "AC011294.3"   "MTAP"         "RP11-145E5.5" "C9orf53"      "CDKN2A"       "CDKN2B"       "ZNF485"       "ZNF32"       
-# "AL137026.1"   "ARID5B"       "RTKN2"        "CAMK2G"       "VCL"          "AP3M1"        "ADK"          "KAT6B"       
-# "DUPD1"        "DUSP13"       "SAMD8"        "VDAC2"        "COMTD1"       "FGF23"        "COL4A1"       "COL4A2"      
-# "CHRNA5"       "CHRNB4"       "ADAMTS7"      "MORF4L1"      "CTSH"         "BCAM"         "PVRL2"        "TOMM40"      
-# "APOE"         "APOC1"       
+target_genes_qc
+```
 
+```{r}
+library(RColorBrewer)
 tophits_known <- c("PHACTR1", "CDKN2B-AS1","APOE") # DMRTA1 not found in the data
 tophits_novel <- c("ENPP3", "ENPP1", "IGFBP3","ARID5B","ADK", "FGF23", "COL4A2", "ADAMTS7", "MORF4L1") # "LINC00841", "LOC100130539" not found in the data
 
@@ -1771,6 +1774,7 @@ p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
 
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.known.png"), plot = last_plot())
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.known.ps"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.known.pdf"), plot = last_plot())
 
 rm(p1)
 
@@ -1781,6 +1785,7 @@ p1 + theme(axis.text.x = element_text(angle = 45, hjust=1, size = 5))
 
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.novel.png"), plot = last_plot())
 ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.novel.ps"), plot = last_plot())
+ggsave(paste0(PLOT_loc, "/", Today, ".DotPlot.TopHits.novel.pdf"), plot = last_plot())
 
 rm(p1)
 
@@ -1792,13 +1797,14 @@ rm(p1)
 
 ------
 
-    Version:      v1.0.2
-    Last update:  2021-07-15
+    Version:      v1.0.3
+    Last update:  2021-11-30
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load single-cell RNA sequencing (scRNAseq) data, and perform quality control (QC), and initial mapping to cells.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
     
     Change log
+    * v1.0.3 Update to the gene list, and code.
     * v1.0.2 Update to the gene list, workflow, and dataset.
     * v1.0.1 Update to the gene list.
     * v1.0.0 Initial version
