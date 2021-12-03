@@ -1563,6 +1563,7 @@ table(temp$Plaque_Vulnerability_Index)
 
 
 ```{r Save SampleSelect}
+# Check https://www.well.ox.ac.uk/~gav/snptest/#multinomial_tests for details on multiple categories testing in SNPTEST
 
 AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
 
@@ -1591,7 +1592,7 @@ sample_file_aegs <- dplyr::select(AEGS123_sample.list,
           Calcification = "B", Collagen = "B", 
           Fat10 = "B", Fat40 = "B", IPH = "B", 
           SMC_rankNorm = "P", MAC_rankNorm = "P", Neutrophils_rankNorm = "P", MastCells_rankNorm = "P", VesselDensity_rankNorm = "P",
-          Plaque_Vulnerability_Index = "P") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
+          Plaque_Vulnerability_Index = "D") %>% ## identifiers: index for these is 1, and all base variables have 0 as identifier
   print()
 dim(sample_file_aegs)
 
