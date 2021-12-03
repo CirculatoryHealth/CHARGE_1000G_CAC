@@ -50,18 +50,18 @@ _Set locations and working directories..._
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
 
-
 ### MacBook Air
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+STORAGE_loc = "/Volumes/LaCie/"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 
-PLINK_loc=paste0(ROOT_loc,"/PLINK")
+PLINK_loc=paste0(STORAGE_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
 
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+PROJECT_loc = paste0(PLINK_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 # use this if there is relevant information here.
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
@@ -1496,7 +1496,7 @@ write.xlsx(file = paste0(BASELINE_loc, "/",Today,".",PROJECTNAME,".AEGS.CEA.Base
 
 We are ready to make a sampleList for use with the imputed data.
 
-```{r Save SampleSelect}
+```{r Prep SampleSelect}
 require(openxlsx)
 
 temp <- subset(AEGS,
@@ -1536,6 +1536,17 @@ temp[,"IPH"] <- NA
 temp$IPH[IPH.bin == "no"] <- "control"
 temp$IPH[IPH.bin == "yes"] <- "case"
 
+temp[,"PVI"] <- NA
+temp$PVI[Plaque_Vulnerability_Index == "0"] <- "PVI_cat0"
+temp$PVI[Plaque_Vulnerability_Index == "1"] <- "PVI_cat1"
+temp$PVI[Plaque_Vulnerability_Index == "2"] <- "PVI_cat2"
+temp$PVI[Plaque_Vulnerability_Index == "3"] <- "PVI_cat3"
+temp$PVI[Plaque_Vulnerability_Index == "4"] <- "PVI_cat4"
+temp$PVI[Plaque_Vulnerability_Index == "5"] <- "PVI_cat5"
+
+temp$Plaque_Vulnerability_Index <- temp$PVI
+temp$PVI <- NULL
+
 detach(temp)
 
 # Making selection variable
@@ -1546,6 +1557,12 @@ detach(temp)
 table(temp$SELECTION, temp$QC2018_FILTER)
 table(temp$SELECTION, temp$STUDY_TYPE)
 table(temp$SELECTION, temp$PCA)
+table(temp$Plaque_Vulnerability_Index)
+
+```
+
+
+```{r Save SampleSelect}
 
 AEGS123_sample.list <- temp[order(temp$OriginalOrder_postMichImp_QC),]
 
@@ -1732,13 +1749,14 @@ c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi
 
 ------
 
-    Version:      v1.0.5
-    Last update:  2021-10-01
+    Version:      v1.0.6
+    Last update:  2021-12-03
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.6 Update code and fix coding of plaque vulnerability index (PVI) to work with SNPTEST.
     * v1.0.5 Update analysis with credible set SNPs.
     * v1.0.4 Update with PVI. Removed PCSK9.
     * v1.0.3 Update to the gene list.

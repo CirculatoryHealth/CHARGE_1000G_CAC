@@ -49,7 +49,7 @@ phenotypes are:
 Continuous variables were inverse-rank normal transformated, indicated by `_rankNorm`. 
 
 **Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
-![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20210924.overlap.AEDB_AEGS123.UpSetR.png)
+![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20211203.overlap.AEDB_AEGS123.UpSetR.png)
 
 ### Gene expression
 
@@ -81,13 +81,14 @@ We projected target genes to the single-cell RNAseq data derived from 37 carotid
 
 #### Changes log
 
-    Version:      v1.0.5
-    Last update:  2021-11-30
+    Version:      v1.0.6
+    Last update:  2021-12-03
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.6 Update code and fix coding of plaque vulnerability index (PVI) to work with SNPTEST.
     * v1.0.5 Updates to the gene list.
     * v1.0.4 Updates to the gene list.
     * v1.0.3 Update to the gene list.
