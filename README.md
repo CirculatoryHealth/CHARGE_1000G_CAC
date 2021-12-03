@@ -49,7 +49,7 @@ phenotypes are:
 Continuous variables were inverse-rank normal transformated, indicated by `_rankNorm`. 
 
 **Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
-![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20210311.overlap.AEDB_AEGS123.UpSetR.png)
+![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20210924.overlap.AEDB_AEGS123.UpSetR.png)
 
 ### Gene expression
 
@@ -58,11 +58,11 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
 **Figure 2: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
-![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20210715.TargetExpression_vs_1000genes.png)
+![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211130.TargetExpression_vs_1000genes.png)
 
 
 **Figure 3: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
-![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20210715.correlations.target_genes.png)
+![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211130.correlations.target_genes.png)
 
 
 We assessed the correlation with plaque characteristics (mentioned above) and secondary major adverse cardiovascular events (MACE [major]) at 30 days and 3 years after CEA. 
@@ -72,22 +72,23 @@ We assessed the correlation with plaque characteristics (mentioned above) and se
 We projected target genes to the single-cell RNAseq data derived from 37 carotid plaque samples. We identified cell communities (Figure 2), mapped and projected target gene expression to the cell communities (Figure 3). 
 
 **Figure 4: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
-![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20210716.UMAP.png)
+![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20211130.UMAP.png)
 
 
 **Figure 5: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
-![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20210716.DotPlot.Targets.png)
+![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20211130.DotPlot.Targets.png)
 
 
 #### Changes log
 
-    Version:      v1.0.4
-    Last update:  2021-07-15
+    Version:      v1.0.5
+    Last update:  2021-11-30
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.5 Updates to the gene list.
     * v1.0.4 Updates to the gene list.
     * v1.0.3 Update to the gene list.
     * v1.0.2 Updated baseline characteristics information. Update GWASToolKit preparation. Added more candidate SNPs to look at. Updated some variable names. 
