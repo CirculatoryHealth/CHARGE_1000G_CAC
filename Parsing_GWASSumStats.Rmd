@@ -340,32 +340,68 @@ DT::datatable(variant_list)
 
 ```
 
+Since we don't need all the data, we will drop some here.
+
+```{r}
+gwas_sumstats_racer <- subset(gwas_sumstats,
+                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue")
+                              )
+```
+
+
+Let's do some plotting.
 ```{r}
 install.packages.auto("devtools") 
 library(devtools) 
 install_github("oliviasabik/RACER") 
 library(RACER)
-str(gwas_sumstats)
 
-cat("\nSubset required data.\n")
-temp <- subset(gwas_sumstats,
-               
-               )
-cat("\nFormatting association data.\n")
-head(RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 13))
+# Make directory for plots
+ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER")), 
+       dir.create(file.path(PROJECT_loc, "/RACER")), 
+       FALSE)
+RACER_loc = paste0(PROJECT_loc,"/RACER")
 
-cat("\nGetting LD data.\n")
-head(RACER::ldRACER(assoc_data = temp, rs_col = 2, pops = "EUR", lead_snp = "rs3844006"))
+variants_of_interest <- c(variant_list$rsID)
+
+for(VARIANT in variants_of_interest){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,4]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,16]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,17]
+  
+  cat("\nSubset required data.\n")
+  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  
+  cat("\nFormatting association data.\n")
+  temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
+
+  cat("\nGetting LD data.\n")
+  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  
+  cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
+  p1 <- RACER::singlePlotRACER(assoc_data = temp_f_ld, 
+                               chr = tempCHR, build = "hg19", 
+                               plotby = "snp", snp_plot = VARIANT,
+                               label_lead = TRUE)
+  
+  print(p1)
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_loc, "/", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT)
+  
+}
+
 
 ```
 
 
-```{r}
-cat("\nRegional association plots.\n")
-RACER::singlePlotRACER(assoc_data = gwas_sumstats, chr = 14, build = "hg19", plotby = "gene", gene_plot = "MARK3")
-
-
-```
 
 
 
@@ -392,7 +428,7 @@ sessionInfo()
 
 # Saving environment
 ```{r Saving}
-rm(gwas_sumstatsLZ)
+rm(gwas_sumstats)
 save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".GWASSumStats.RData"))
 ```
 
