@@ -53,6 +53,7 @@ _Set locations and working directories..._
 ### MacBook Air
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 STORAGE_loc = "/Volumes/LaCie/"
+
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
