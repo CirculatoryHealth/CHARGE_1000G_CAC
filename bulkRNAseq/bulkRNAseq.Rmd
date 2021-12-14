@@ -50,7 +50,7 @@ STORAGE_loc = "/Volumes/LaCie/PLINK"
 ### Generic Locations
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-AERNA_loc = paste0(STORAGE_loc, "/_AE_ORIGINALS/AERNA/QC")
+AERNA_loc = paste0(STORAGE_loc, "/_AE_ORIGINALS/AERNA")
 
 PROJECT_loc = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 RESULTS = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/bulkRNAseq")
@@ -296,7 +296,7 @@ First we will load the data:
 
 ## Bulk RNAseq data
 
-Here we load the latest dataset from our Athero-Express bulk RNA experiment d.d. 2019-12-11 mapped to b37 and Ensembl 87. 
+Here we load the latest dataset from our Athero-Express bulk RNA experiment d.d. 2021-12-03 mapped to b37 and Ensembl 87. 
 
 These bulk RNAseq data are filtered and corrected:
 
@@ -306,10 +306,15 @@ These bulk RNAseq data are filtered and corrected:
 
 ```{r LoadData}
 # bulk RNAseq data
-bulkRNA_counts <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_raw_counts_UMIcorr_weird_genes_filtered.txt"))
+# bulkRNA_counts <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_raw_counts_UMIcorr_weird_genes_filtered.txt"))
+
+bulkRNA_counts_raw <- fread(paste0(AERNA_loc,"/raw_data_bulk/raw_counts_batch1till11_qc_umicorrected.txt"))
+
+
 
 # batch information
-bulkRNA_meta <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
+# bulkRNA_meta <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
+bulkRNA_meta <- fread(paste0(AERNA_loc,"/raw_data_bulk/metadata_raw_counts_batch1till11.txt"))
 
 ```
 
@@ -317,10 +322,39 @@ Quick peek at the counts and meta-data of the RNAseq experiment.
 
 ```{r QuickPeek}
 
-head(bulkRNA_counts)
+head(bulkRNA_counts_raw)
 
 head(bulkRNA_meta)
 ```
+
+### Annotating the RNAseq data
+
+```{r}
+library("devtools")
+devtools::install_github("stephenturner/annotables")
+library(dplyr)
+library(annotables)
+
+# Columns of interest
+# entrez
+# symbol
+# chr
+# start
+# end
+# strand
+# biotype
+# description
+
+
+bulkRNA_counts <- bulkRNA_counts_raw %>% 
+  # arrange(p.adjusted) %>% 
+  # head(20) %>% 
+  inner_join(grch37, by=c("ENSEMBL_gene_ID"="ensgene")) %>%
+  # select(gene, estimate, p.adjusted, symbol, description) %>% 
+  relocate(entrez, symbol, chr, start, end, strand, biotype, description, .before = ae1618)
+
+```
+
 
 <!-- We will fix the `STUDY_NUMBER` header and variable.  -->
 <!-- ```{r FixBulkRNAseq} -->
@@ -1093,13 +1127,25 @@ Here we will clean up the data and create a `SummarizedExperiment()` object for 
 
 ```{r Parsing RNAseq, message=FALSE, warning=FALSE}
 AEDB.CEA.sampleList <- AEDB.CEA$STUDY_NUMBER
+
+# first 9 columns
+# ENSEMBL_gene_ID
+# entrez
+# symbol
+# chr
+# start
+# end
+# strand
+# biotype
+# description
+
 # match up with meta data of RNAseq experiment
 bulkRNA_countsFilt <- bulkRNA_counts %>%
   drop_na(chr) %>%   # remove rows that have no information of start, end, chromosome and/or strand
-  dplyr::select(1:6, one_of(sort(as.character(AEDB.CEA.sampleList)))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
+  dplyr::select(1:9, one_of(sort(as.character(AEDB.CEA.sampleList)))) # select gene expression of only patients in RNA-seq AE df, sort in same order as metadata study_number
 dim(bulkRNA_countsFilt)
 
-study_samples_bulkNEW <- colnames(bulkRNA_counts[, -(1:6)])
+study_samples_bulkNEW <- colnames(bulkRNA_counts[, -(1:9)])
 length(study_samples_bulkNEW)
 study_samples_AEDBCEA <- c(AEDB.CEA$STUDY_NUMBER)
 study_samples_AEDB <- c(AEDB$STUDY_NUMBER)
@@ -1113,7 +1159,7 @@ AEDB_filt <- AEDB[AEDB$STUDY_NUMBER %in% setdif_samples_NEWvsAEDBCEA,]
 table(AEDB_filt$Artery_summary, AEDB_filt$Gender)
 
 # Cut up bulkRNA_countsFilt into 'assay' and 'ranges' part
-counts <- as.data.frame(bulkRNA_countsFilt[,-(1:6)])  ## assay part
+counts <- as.data.frame(bulkRNA_countsFilt[,-(1:9)])  ## assay part
 rownames(counts) <- bulkRNA_countsFilt$ensembl_gene_id  ## assign rownames
 
 bulkRNA_rowRanges <- GRanges(bulkRNA_countsFilt$chr,	 ## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
