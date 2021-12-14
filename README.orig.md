@@ -3,7 +3,6 @@
 _Project ID_: `AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC`.
 
 ## Background
-<!-- Please add a brief introduction to explain what the project is about    -->
 
 Collaboration for mapping targets from the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ with Maryam Kavousi, Patricia Peyser, and Maxime Bos.
 
@@ -19,6 +18,7 @@ Ideally, we would like to map the variants to the expression and methylation dat
 We expect new plasma-based OLINK data (for the 'TO_AITION' projecty) in Q4 2020. We agreed that we would keep this in mind, we could run some additional analyses when asked during the revision stage of the manuscript.
 
 - Correlation of variants to proteins from the OLINK-platform
+
 
 ## Methods
 
@@ -79,71 +79,6 @@ We projected target genes to the single-cell RNAseq data derived from 37 carotid
 ![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20211130.DotPlot.Targets.png)
 
 
-## Where do I start?
-
-You can load this project in RStudio by opening the file called 'AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC.Rproj'.
-
-## Project structure
-
-<!--  You can add rows to this table, using "|" to separate columns.         -->
-File                                                 | Description                            | Usage         
----------------------------------------------------- | -------------------------------------- | --------------
-README.md                                            | Description of project                 | Human editable
-LICENSE                                              | User permissions                       | Read only     
-.worcs                                               | WORCS metadata YAML                    | Read only     
-renv.lock                                            | Reproducible R environment             | Read only     
-images                                               | Images directory                       | Human editable
-scripts                                              | Script to process some things          | Human editable
-bulkRNAseq                                           | Bulk RNAseq scripts and results        | Human editable
-CAC                                                  | General results                        | Human editable
-CredibleSets                                         | The credible sets used                 | Human editable
-scRNAseq                                             | Single-cell RNAseq scripts and results | Human editable
-SNP                                                  | SNP analyses scripts and results       | Human editable
-Parsing_GWASSumStats                                 | Creating regional assoc. plots         | Human editable
-AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC       | Script to process raw data             | Human editable
-AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC.Rproj | Project file                           | Loads project 
-
-<!--  You can consider adding the following to this file:                    -->
-<!--  * A citation reference for your project                                -->
-<!--  * Contact information for questions/comments                           -->
-<!--  * How people can offer to contribute to the project                    -->
-<!--  * A contributor code of conduct, https://www.contributor-covenant.org/ -->
-
-# Reproducibility
-
-This project uses the Workflow for Open Reproducible Code in Science (WORCS) to
-ensure transparency and reproducibility. The workflow is designed to meet the
-principles of Open Science throughout a research project. 
-
-To learn how WORCS helps researchers meet the TOP-guidelines and FAIR principles,
-read the preprint at https://osf.io/zcvbs/
-
-## WORCS: Advice for authors
-
-* To get started with `worcs`, see the [setup vignette](https://cjvanlissa.github.io/worcs/articles/setup.html)
-* For detailed information about the steps of the WORCS workflow, see the [workflow vignette](https://cjvanlissa.github.io/worcs/articles/workflow.html)
-
-## WORCS: Advice for readers
-
-Please refer to the vignette on [reproducing a WORCS project]() for step by step advice.
-<!-- If your project deviates from the steps outlined in the vignette on     -->
-<!-- reproducing a WORCS project, please provide your own advice for         -->
-<!-- readers here.                                                           -->
-
-# Acknowledgements
-
-Dr. Sander W. van der Laan is funded through grants from the Netherlands CardioVascular Research Initiative of the Netherlands Heart Foundation (CVON 2011/B019 and CVON 2017-20: Generating the best evidence-based pharmaceutical targets for atherosclerosis [GENIUS I&II]). We are thankful for the support of the ERA-CVD program ‘druggable-MI-targets’ (grant number: 01KL1802), the EU H2020 TO_AITION (grant number: 848146), and the Leducq Fondation ‘PlaqOmics’.
-
-Plaque samples are derived from carotid endarterectomies as part of the [Athero-Express Biobank Study](http:www/atheroexpress.nl) which is an ongoing study in the UMC Utrecht.
-
-The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
-
-<center>
-<a href='https://www.era-cvd.eu'><img src='images/ERA_CVD_Logo_CMYK.png' align="center" height="75" /></a> <a href='https://www.to-aition.eu'><img src='images/to_aition.png' align="center" height="75" /></a> 
-<a href='https://www.plaqomics.com'><img src='images/leducq-logo-large.png' align="center" height="75" /></a> <a href='https://www.fondationleducq.org'><img src='images/leducq-logo-small.png' align="center" height="75" /></a> 
-<a href='https://osf.io/zcvbs/'><img src='images/worcs_icon.png' align="center" height="75" /></a> <a href='https://www.atheroexpress.nl'><img src='images/AE_Genomics_2010.png' align="center" height="100" /></a>
-</center>
-
 #### Changes log
 
     Version:      v1.0.7
@@ -175,4 +110,6 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Reference: http://opensource.org.
+
+
 
