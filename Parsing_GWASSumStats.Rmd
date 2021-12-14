@@ -43,27 +43,28 @@ We will clean the environment, setup the locations, define colors, and create a 
 
 _Clean the environment._
 ```{r echo = FALSE}
-# rm(list = ls())
+rm(list = ls())
 ```
 
 _Set locations and working directories..._
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
 
-
 ### MacBook Air
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+STORAGE_loc = "/Volumes/LaCie/"
+
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 
-PLINK_loc=paste0(ROOT_loc,"/PLINK")
+PLINK_loc=paste0(STORAGE_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
 
 GWAS_loc=paste0(PLINK_loc,"/_GWAS_Datasets/_CHARGE_CAC")
 
-PROJECT_loc = paste0(ROOT_loc, "/PLINK/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+PROJECT_loc = paste0(PLINK_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
 
 # use this if there is relevant information here.
 TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
@@ -244,20 +245,14 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 
 # Introduction
 
-We need to parse and sort the 1000G GWAS CAC data for sharing summary statistics and use in [my.locuszoom.org](https://my.locuszoom.org).
+We will parse the data to create regional association plots for each of the 11 loci. 
 
 # Load data
 
 We need to load the data first.
 ```{r}
 
-gwas_sumstatsLZ <- fread(paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.forMyLocusZoom.txt.gz"),
-                         showProgress = TRUE)
-
-```
-```{r}
-
-gwas_sumstatsALL <- fread(paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.organized.txt.gz"),
+gwas_sumstats <- fread(paste0(GWAS_loc,"/CAC1000G_EA_AA_FINAL_FUMA.txt.gz"),
                          showProgress = TRUE)
 ```
 
@@ -268,28 +263,26 @@ We provide some summary statistics here.
 
 ```{r}
 cat("Getting a head (top) of the summary statistics.\n")
-DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
 
-
-DT::datatable(head(gwas_sumstatsLZ), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
+DT::datatable(head(gwas_sumstats), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
 ```
 
 ```{r}
 cat("\n\nGetting summary statistics.\n")
-summary(gwas_sumstatsLZ)
+summary(gwas_sumstats)
 ```
 
 ```{r}
-cat(paste0("\nTotal number of variants: "), format(length(gwas_sumstatsLZ$chr_vcf), big.mark = ","),".\n")
+cat(paste0("\nTotal number of variants: "), format(length(gwas_sumstats$Chr), big.mark = ","),".\n")
 
-cat(paste0("\nAvailable chromosomes: "), format(unique(gwas_sumstatsLZ$chr_vcf), big.mark = ","),".\n")
+cat(paste0("\nAvailable chromosomes: "), format(unique(gwas_sumstats$Chr), big.mark = ","),".\n")
 
 cat("\n\nEffect allele frequency summary: \n")
-summary(gwas_sumstatsLZ$Freq1)
+summary(gwas_sumstats$Freq1)
 
 
 cat("\nEffect size summary: \n")
-summary(gwas_sumstatsLZ$Effect)
+summary(gwas_sumstats$Effect)
 
 
 ```
@@ -298,8 +291,8 @@ summary(gwas_sumstatsLZ$Effect)
 ```{r}
 
 gghistogram(
-  gwas_sumstatsLZ,
-  x = "Effect",
+  gwas_sumstats,
+  x = "Freq1",
   y = "..count..",
   color = uithof_color[16],
   fill = uithof_color[16],
@@ -318,7 +311,7 @@ gghistogram(
 ```{r}
 
 gghistogram(
-  gwas_sumstatsLZ,
+  gwas_sumstats,
   x = "Effect",
   y = "..count..",
   color = uithof_color[3],
@@ -335,26 +328,45 @@ gghistogram(
 
 ```
 
+# Regional association plotting
 
+We are interested in 11 top loci. 
 
-# Parsing
-
-Sorting the summary statistics.
 ```{r}
+library(openxlsx)
+variant_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
-gwas_sumstatsLZa <- dplyr::arrange(gwas_sumstatsLZ, chr_vcf, position_vcf)
-
-head(gwas_sumstatsLZa)
+DT::datatable(variant_list)
 
 ```
 
 ```{r}
-fwrite(gwas_sumstatsLZa, 
-       paste0(GWAS_loc,"/1000G_CAC_EA_AA_filtered_71521.forMyLocusZoom.sort.txt"),
-       quote = FALSE, sep = "\t",
-       row.names = FALSE, col.names = TRUE,
-       showProgress = TRUE)
+install.packages.auto("devtools") 
+library(devtools) 
+install_github("oliviasabik/RACER") 
+library(RACER)
+str(gwas_sumstats)
+
+cat("\nSubset required data.\n")
+temp <- subset(gwas_sumstats,
+               
+               )
+cat("\nFormatting association data.\n")
+head(RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 13))
+
+cat("\nGetting LD data.\n")
+head(RACER::ldRACER(assoc_data = temp, rs_col = 2, pops = "EUR", lead_snp = "rs3844006"))
+
 ```
+
+
+```{r}
+cat("\nRegional association plots.\n")
+RACER::singlePlotRACER(assoc_data = gwas_sumstats, chr = 14, build = "hg19", plotby = "gene", gene_plot = "MARK3")
+
+
+```
+
 
 
 # Session information
@@ -362,12 +374,13 @@ fwrite(gwas_sumstatsLZa,
 ------
 
     Version:      v1.0.0
-    Last update:  2021-10-05
+    Last update:  2021-12-14
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to parse GWAS summary statistics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.1 Creating regional association plots for the top hits.
     * v1.0.0 Initial version. 
 
 ------
