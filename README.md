@@ -58,11 +58,11 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
 **Figure 2: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
-![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211130.TargetExpression_vs_1000genes.png)
+![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211214.TargetExpression_vs_1000genes.png)
 
 
 **Figure 3: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
-![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211130.correlations.target_genes.png)
+![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211214.correlations.target_genes.png)
 
 
 We assessed the correlation with plaque characteristics (mentioned above) and secondary major adverse cardiovascular events (MACE [major]) at 30 days and 3 years after CEA. 
@@ -153,6 +153,7 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.7 Update to the count data.
     * v1.0.6 Update to WORCS framework.
     * v1.0.6 Update code and fix coding of plaque vulnerability index (PVI) to work with SNPTEST.
     * v1.0.5 Updates to the gene list.

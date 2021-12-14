@@ -310,8 +310,6 @@ These bulk RNAseq data are filtered and corrected:
 
 bulkRNA_counts_raw <- fread(paste0(AERNA_loc,"/raw_data_bulk/raw_counts_batch1till11_qc_umicorrected.txt"))
 
-
-
 # batch information
 # bulkRNA_meta <- fread(paste0(AERNA_loc,"/2019-12-11_bulk_RNAseq_data_to_share/bulk_RNAseq_metadata.txt"))
 bulkRNA_meta <- fread(paste0(AERNA_loc,"/raw_data_bulk/metadata_raw_counts_batch1till11.txt"))
@@ -327,9 +325,48 @@ head(bulkRNA_counts_raw)
 head(bulkRNA_meta)
 ```
 
-### Annotating the RNAseq data
+### Annotating and fixing the RNAseq data
+
+There are two small issues we need to address:
+
+- annotation with chromosome, start/end, strand, and gene information
+- fixing ±`Inf` values
+
+
+#### Fixing infinite values
+
 
 ```{r}
+cat("\nThere are a couple of samples with infinite gene counts.\n")
+temp <- bulkRNA_counts_raw %>% mutate_if(is.numeric, as.integer)
+summary(bulkRNA_counts_raw$ae2341)
+summary(bulkRNA_counts_raw$ae3078)
+summary(bulkRNA_counts_raw$ae1422)
+summary(bulkRNA_counts_raw$ae2305)
+summary(bulkRNA_counts_raw$ae1256)
+summary(bulkRNA_counts_raw$ae411)
+summary(bulkRNA_counts_raw$ae1227)
+
+cat("\nFixing the infinite gene counts.\n")
+temp <- bulkRNA_counts_raw %>%
+  mutate(across( # For every column you want...
+  starts_with("ae"), # ...change all studynumber
+  ~ case_when( 
+  . ==  Inf ~ max(.[is.finite(.)]), # +Inf becomes the finite max.
+  . == -Inf ~ min(.[is.finite(.)]), # -Inf becomes the finite min.
+  TRUE ~ . # Other values stay the same.
+  )
+  )
+  )
+
+
+```
+
+
+#### Annotating
+
+```{r}
+
 library("devtools")
 devtools::install_github("stephenturner/annotables")
 library(dplyr)
@@ -345,13 +382,27 @@ library(annotables)
 # biotype
 # description
 
+cat("\nChecking existence of duplicate ENSEMBL IDs - there shouldn't be any.\n")
+id <- temp$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
+rm(id)
+```
 
-bulkRNA_counts <- bulkRNA_counts_raw %>% 
+```{r}
+cat("\nAnnotating with b37.\n")
+bulkRNA_counts <- temp %>% 
   # arrange(p.adjusted) %>% 
   # head(20) %>% 
   inner_join(grch37, by=c("ENSEMBL_gene_ID"="ensgene")) %>%
   # select(gene, estimate, p.adjusted, symbol, description) %>% 
-  relocate(entrez, symbol, chr, start, end, strand, biotype, description, .before = ae1618)
+  relocate(entrez, symbol, chr, start, end, strand, biotype, description, 
+           .before = ae1618) %>%
+  dplyr::filter(duplicated(ENSEMBL_gene_ID) == FALSE)
+head(bulkRNA_counts)
+
+
+id <- bulkRNA_counts$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
 
 ```
 
@@ -1160,12 +1211,17 @@ table(AEDB_filt$Artery_summary, AEDB_filt$Gender)
 
 # Cut up bulkRNA_countsFilt into 'assay' and 'ranges' part
 counts <- as.data.frame(bulkRNA_countsFilt[,-(1:9)])  ## assay part
-rownames(counts) <- bulkRNA_countsFilt$ensembl_gene_id  ## assign rownames
+counts <- counts %>% mutate_if(is.numeric, as.integer)
+
+rownames(counts) <- bulkRNA_countsFilt$ENSEMBL_gene_ID  ## assign rownames
+
+id <- bulkRNA_countsFilt$ENSEMBL_gene_ID
+id[ id %in% id[duplicated(id)] ]
 
 bulkRNA_rowRanges <- GRanges(bulkRNA_countsFilt$chr,	 ## construct a GRanges object containing 4 columns (seqnames, ranges, strand, seqinfo) plus a metadata colum (feature_id): this will be the 'rowRanges' bit
                      IRanges(bulkRNA_countsFilt$start, bulkRNA_countsFilt$end),
                      strand = bulkRNA_countsFilt$strand,
-                     feature_id = bulkRNA_countsFilt$ensembl_gene_id) #, df$pid)
+                     feature_id = bulkRNA_countsFilt$ENSEMBL_gene_ID) #, df$pid)
 names(bulkRNA_rowRanges) <- bulkRNA_rowRanges$feature_id
 
 # ?org.Hs.eg.db
@@ -1246,9 +1302,9 @@ head(counts)
 head(bulkRNA_countsFilt)
 
 cat("  > meta data\n")
-temp_coldat <- data.frame(STUDY_NUMBER = names(bulkRNA_countsFilt[,7:628]), 
+temp_coldat <- data.frame(STUDY_NUMBER = names(bulkRNA_countsFilt[,10:633]), 
                           SampleType = "plaque", RNAseqType = "3' RNAseq", 
-                          row.names = names(bulkRNA_countsFilt[,7:628]))
+                          row.names = names(bulkRNA_countsFilt[,10:633]))
 cat("  > clinical data\n")
 temp_coldat_clin <- merge(temp_coldat, bulkRNA_meta_clin, by.x = "STUDY_NUMBER", by.y = "study_number", sort = FALSE, all.x = TRUE)
 
@@ -1262,7 +1318,7 @@ cat("  > construction of the SE\n")
                                 metadata = "Athero-Express Biobank Study bulk RNA sequencing. Sample type: carotid plaques. Technology: CEL2-seq adapted for bulk RNA sequencing, thus 3'-focused. UMI-corrected"))
 
 cat("\n* removing intermediate files ...\n")
-rm(temp, temp_coldat, temp_coldat_clin)
+rm(temp_coldat, temp_coldat_clin)
 
 ```
 
@@ -1271,11 +1327,9 @@ rm(temp, temp_coldat, temp_coldat_clin)
 Do the study numbers correspond between metadata and expression data?
 ```{r matching_names}
 ## check whether rownames metadata and colnames counts are identical
-all(rownames(bulkRNA_meta_clin) == colnames(counts))
+all(colnames(AERNASE) == colnames(counts))
 
 ```
-
-
 
 So, now we have raw counts for all patients included in the bulk RNAseq data, with all clinical data annotated to them.
 
@@ -1410,6 +1464,7 @@ expression_long <- expression_long %>%
                                        plaque_phenotypes_cat,
                                        plaque_phenotypes_num,
                                        epmajor.3years, epmajor.30days,
+                                       AsymptSympt2G,
                                        Gender, Hospital),
             by = "study_number") %>%
   mutate(epmajor_3years_yn = str_replace_all(epmajor.3years, c("Excluded" = "yes", "Included" = "no"))) %>%
@@ -1423,39 +1478,9 @@ head(expression_long)
 
 ## Gene expression - distribution
 
-**Figure 1: Expression of genes of interest: boxplots**
-```{r boxplots_expression}
-# Make directory for plots
-ifelse(!dir.exists(file.path(QC_loc, "/Boxplots")), 
-       dir.create(file.path(QC_loc, "/Boxplots")), 
-       FALSE)
-BOX_loc = paste0(QC_loc,"/Boxplots")
-
-for(GENE in target_genes){
-  cat(paste0("Plotting expression for ", GENE,".\n"))
-  temp <- subset(expression_long, symbol == GENE)
-  p1 <- ggpubr::ggboxplot(temp,
-                          x = "Gender",
-                          y = "expression_value",
-                          color = "Gender",
-                          palette = "npg",
-                          add = "jitter",
-                          ylab = paste0("normalized expression ", GENE,"" )  
-                          )
-  #print(p1)
-  cat(paste0("Saving image for ", GENE,".\n"))
-  
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
-  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
-  
-  rm(temp, p1 )
-}
-
-```
-
 ### Filter genes
 
-Based on the above graphs we can see that some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
+Some of the genes are not measured/available in our dataset. We will remove these from the `target_genes` list.
 
 - _AC011294.3_ ==> not found
 - _C6orf195_ => _LINC01600_ replacement, not found
@@ -1466,13 +1491,16 @@ Based on the above graphs we can see that some of the genes are not measured/ava
 - _BCAM_ ==> _CD239_ replacement, not found
 - _DUPD1_ ==> _DUSP27_ replacement, not found
 - _PVRL2_ ==> _NECTIN2_ replacement, not found
+- _LOC100130539_ ==> _LINC02881_ or _C10orf142_ replacement, not found
+- _LINC00841_ ==> not found
 
 ```{r list target genes}
 target_genes
 ```
 
 ```{r filter target genes}
-target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2")
+target_genes_rm <- c("AC011294.3", "C6orf195", "C9orf53", "AL137026.1", "DUPD1", "RP11-145E5.5", "PVRL2",
+                     "LINC00841", "LOC100130539")
 
 temp = target_genes[!target_genes %in% target_genes_rm]
 
@@ -1481,14 +1509,47 @@ target_genes_qc <- c(temp)
 target_genes_qc
 
 # for debug
-target_genes_qc_replace <- c("LINC01600", "DUSP27", "NECTIN2")
+target_genes_qc_replace <- c("LINC01600", "DUSP27", "NECTIN2", "C10orf142", "LINC02881")
 
 
 ```
 
+**Figure 1: Expression of genes of interest: boxplots**
+```{r boxplots_expression}
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/Boxplots")), 
+       dir.create(file.path(QC_loc, "/Boxplots")), 
+       FALSE)
+# BOX_loc = paste0(QC_loc,"/Boxplots")
+
+for(GENE in target_genes_qc){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE)
+  
+  compare_means(expression_value ~ Gender, data = temp)
+  
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "Gender",
+                          y = "expression_value",
+                          color = "Gender",
+                          palette = "npg",
+                          add = "jitter",
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
+                          ) + stat_compare_means()
+  #print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  
+  ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.png"), plot = last_plot())
+  # ggsave(filename = paste0(BOX_loc, "/", Today, ".",GENE,".expression_vs_gender.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+
+```
 
 **Figure 2A: Expression of genes of interest: histograms**
-```{r hist_expression}
+```{r hist_expression, message=FALSE, warning=FALSE}
 # Make directory for plots
 ifelse(!dir.exists(file.path(QC_loc, "/Histograms")), 
        dir.create(file.path(QC_loc, "/Histograms")), 
@@ -1509,7 +1570,7 @@ for(GENE in target_genes_qc){
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.png"), plot = last_plot())
-  ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(HISTOGRAM_loc, "/", Today, ".",GENE,".distribution.pdf"), plot = last_plot())
 
   rm(temp, p1 )
 }
@@ -1517,7 +1578,7 @@ for(GENE in target_genes_qc){
 ```
 
 **Figure 2B: Expression of genes of interest: density plots**
-```{r dens_expression}
+```{r dens_expression, message=FALSE, warning=FALSE}
 # Make directory for plots
 ifelse(!dir.exists(file.path(QC_loc, "/Density")), 
        dir.create(file.path(QC_loc, "/Density")), 
@@ -1538,7 +1599,7 @@ for(GENE in target_genes_qc){
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.png"), plot = last_plot())
-  ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(DENSITY_loc, "/", Today, ".",GENE,".density.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1555,9 +1616,12 @@ for(GENE in target_genes_qc){
 expression_wide <- expression_long %>%
   dplyr::select(-gene_ensembl) %>%
   spread(key = symbol, value = expression_value)
+```
 
+```{r }
 # the next 3 lines of code gave an error when selecting for genes_interest, since one of the genes of interest is missing: FGF3 is not in the data set. So, we need to select for the other 15 genes.
 # genes_interest <- genes_interest[genes_interest$Symbol %in% unique(expression_long$symbol),]
+# target_genes_qc
 
 expression_wide2 <- expression_wide %>%
   left_join(expression_data_sample_mean, by = "study_number") %>%
@@ -1565,8 +1629,8 @@ expression_wide2 <- expression_wide %>%
 
 expression_long2 <- expression_wide2 %>%
   gather(gene, expression_value, -study_number) %>%
-  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Random genes"))) %>%
-  mutate(gene = factor(gene, levels = c("Random genes", target_genes_qc)))
+  mutate(gene = str_replace_all(gene, c("expression_value_sample" = "Random genes"))) #%>%
+  # mutate(gene = factor(gene, levels = c("Random genes", target_genes_qc)))
 
 mean_1000_genes <- mean(expression_data_sample_mean$expression_value_sample)
 # head(expression_long2)
@@ -1624,6 +1688,9 @@ PLAQUEPHENO_loc = paste0(QC_loc,"/PlaquePhenotypes")
 for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long_cat, symbol == GENE)
+  
+  # compare_means(expression_value ~ plaque_phenotype, data = temp)
+  
   p1 <- ggpubr::ggboxplot(temp,
                           x = "plaque_phenotype",
                           y = "expression_value",
@@ -1631,12 +1698,14 @@ for(GENE in target_genes_qc){
                           palette = "npg",
                           add = "jitter",
                           add.params = list(size = 0.1, jitter = 0.2),
-                          ylab = paste0("normalized expression ", GENE,"" )  
-                          )
+                          ylab = paste0("normalized expression ", GENE,"" ) ,
+                          repel = TRUE
+                          ) #+ stat_compare_means() 
+  
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.png"), plot = last_plot())
-  ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(PLAQUEPHENO_loc, "/", Today, ".",GENE,".expression_vs_cat_plaquephenotypes.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1646,11 +1715,13 @@ for(GENE in target_genes_qc){
 
 ### Clinical traits
 
+#### Secondary outcome
+
 We correlated secondary major adverse clinical events (MACE) to gene expression.
 
-**Figure 5: genes of interest plotted over MACE**
+**Figure 5a: genes of interest plotted over MACE**
 
-```{r boxplot_epmajor, fig.height = 10, fig.width = 5}
+```{r boxplot_epmajor_30days, fig.height = 10, fig.width = 5}
 # Make directory for plots
 ifelse(!dir.exists(file.path(QC_loc, "/ClinicalOutcome")), 
        dir.create(file.path(QC_loc, "/ClinicalOutcome")), 
@@ -1673,6 +1744,9 @@ CLINICAL3Y_loc = paste0(CLINICALOUT_loc,"/3Years")
 for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.30days))
+  
+  compare_means(expression_value ~ epmajor.30days, data = temp)
+  
   p1 <- ggpubr::ggboxplot(temp,
                           x = "epmajor.30days",
                           y = "expression_value",
@@ -1680,20 +1754,26 @@ for(GENE in target_genes_qc){
                           palette = "npg",
                           add = "jitter",
                           add.params = list(size = 0.1, jitter = 0.2),
-                          ylab = paste0("normalized expression ", GENE,"" )  
-                          )
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
+                          ) + stat_compare_means()
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.png"), plot = last_plot())
-  ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(CLINICAL30D_loc, "/", Today, ".",GENE,".expression_vs_MACE_30days.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
+```
 
 
+```{r boxplot_epmajor_3years, fig.height = 10, fig.width = 5}
 for(GENE in target_genes_qc){
   cat(paste0("Plotting expression for ", GENE,".\n"))
   temp <- subset(expression_long, symbol == GENE & !is.na(epmajor.3years))
+  
+  compare_means(expression_value ~ epmajor.3years, data = temp)
+  
   p1 <- ggpubr::ggboxplot(temp,
                           x = "epmajor.3years",
                           y = "expression_value",
@@ -1701,40 +1781,77 @@ for(GENE in target_genes_qc){
                           palette = "npg",
                           add = "jitter",
                           add.params = list(size = 0.1, jitter = 0.2),
-                          ylab = paste0("normalized expression ", GENE,"" )  
-                          )
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
+                          ) + stat_compare_means()
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.png"), plot = last_plot())
-  ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(CLINICAL3Y_loc, "/", Today, ".",GENE,".expression_vs_MACE_3years.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
 
 ```
 
+#### Symptoms at inclusion
+
+**Figure 5b: genes of interest plotted over symptoms at inclusion**
+
+```{r boxplot_epmajor_30days, fig.height = 10, fig.width = 5}
+
+# Make directory for plots
+ifelse(!dir.exists(file.path(CLINICALOUT_loc, "/symptoms")), 
+       dir.create(file.path(CLINICALOUT_loc, "/symptoms")), 
+       FALSE)
+CLINICALSYMPT_loc = paste0(CLINICALOUT_loc,"/symptoms")
+
+
+for(GENE in target_genes_qc){
+  cat(paste0("Plotting expression for ", GENE,".\n"))
+  temp <- subset(expression_long, symbol == GENE & !is.na(AsymptSympt2G))
+  
+  compare_means(expression_value ~ AsymptSympt2G, data = temp)
+  
+  p1 <- ggpubr::ggboxplot(temp,
+                          x = "AsymptSympt2G",
+                          y = "expression_value",
+                          color = "AsymptSympt2G",
+                          palette = "npg",
+                          add = "jitter",
+                          add.params = list(size = 0.1, jitter = 0.2),
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
+                          ) + stat_compare_means()
+  # print(p1)
+  cat(paste0("Saving image for ", GENE,".\n"))
+  ggsave(filename = paste0(CLINICALSYMPT_loc, "/", Today, ".",GENE,".expression_vs_AsymptSympt2G.png"), plot = last_plot())
+  # ggsave(filename = paste0(CLINICALSYMPT_loc, "/", Today, ".",GENE,".expression_vs_AsymptSympt2G.pdf"), plot = last_plot())
+  
+  rm(temp, p1 )
+}
+```
 
 #### Statistical testing: non-parametric test
 
 Since we have multiple groups, while data and residuals are not normally distributed, we need to use a Kruskal-Wallis test. The assumptions here are independent samples (yes), and homoscedasticity (yes). No assumption that the data or residuals have a known distribution.
 
 ```{r kruskal_wallis_all outcome}
-var_pairs <- crossing(target_genes_qc, c(plaque_phenotypes_cat, "epmajor.3years")) %>%
+var_pairs <- crossing(target_genes_qc, c(plaque_phenotypes_cat, "epmajor.3years", "AsymptSympt2G")) %>%
   setNames(c("genes", "variables"))
 
 d <- expression_wide %>%
-  dplyr::select(target_genes_qc, plaque_phenotypes_cat, epmajor.3years)
+  dplyr::select(target_genes_qc, plaque_phenotypes_cat, epmajor.3years, AsymptSympt2G)
 
-kw_results <- var_pairs %>%
+kw_results <- as.data.frame(var_pairs %>%
   dplyr::mutate(r.test = purrr::map2(genes, variables, ~ stats::kruskal.test(d[[.x]], d[[.y]])),
                 r.test = purrr::map(r.test, broom::tidy)) %>%
   tidyr::unnest(r.test) %>%
-  mutate(padj = p.adjust(p.value, method = "holm"))
+  mutate(padj = p.adjust(p.value, method = "holm")))
 
 DT::datatable(kw_results)
 
 fwrite(kw_results, file = paste0(OUT_loc,"/",Today,".results.kruskal_wallis.gene_vs_plaque_clin_traits.txt"))
-
 
 ```
 
@@ -1762,13 +1879,14 @@ for(GENE in target_genes_qc){
                           add.params = list(linetype = "dotted", color = uithof_color[30]), 
                           conf.int = TRUE, 
                           cor.coef = TRUE, cor.method = "spearman", 
-                          ylab = paste0("normalized expression ", GENE,"" )  
+                          ylab = paste0("normalized expression ", GENE,"" ),
+                          repel = TRUE
                           )
   
   # print(p1)
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.png"), plot = last_plot())
-  ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(PLAQUEPHENOCOR_loc, "/", Today, ".",GENE,".expression_vs_quant_plaque_traits.pdf"), plot = last_plot())
   
   rm(temp, p1 )
 }
@@ -1786,11 +1904,11 @@ var_pairs <- crossing(target_genes_qc, plaque_phenotypes_num) %>%
 d <- expression_wide %>%
   dplyr::select(target_genes_qc, plaque_phenotypes_num)
 
-corr_results <- var_pairs %>%
+corr_results <- as.data.frame(var_pairs %>%
   dplyr::mutate(r.test = purrr::map2(genes, plaque_phenotype, ~ stats::cor.test(d[[.x]], d[[.y]], method = "spearman")),
                 r.test = purrr::map(r.test, broom::tidy)) %>%
   tidyr::unnest(r.test) %>%
-  mutate(padj = p.adjust(p.value, method = "holm"))
+  mutate(padj = p.adjust(p.value, method = "holm")))
 
 DT::datatable(corr_results)
 
@@ -1798,45 +1916,52 @@ fwrite(corr_results, file = paste0(OUT_loc,"/",Today,".results.spearman.gene_vs_
 
 ```
 
-### Heatmaps for plaque phenotypes, secondary events, and genes of interest
+### Heatmaps for genes of interest
 
-If we would put these correlations in one simple and comprehensible figure, we could use a correlation heatmap. Again, correlation coefficients used here are Spearman's. Note that this heatmap only contains n = 595, while neutrophils and mast cells are excluded as variables (low sample sizes). This is due to missing values (see Figure 6).
+If we would put these correlations in one simple and comprehensible figure, we could use a correlation heatmap. Again, correlation coefficients used here are Spearman's. 
 
-Note that we removed _DUPD1_ given that it's standard deviation = 0. 
+<!-- Note that this heatmap only contains n = 595, while neutrophils and mast cells are excluded as variables (low sample sizes). This is due to missing values (see Figure 6). -->
 
-**Figure 7: correlation heatmap between expression of plaque phenotypes, secondary events (epmajor), and genes of interest**
-```{r heatmap_corr, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(magrittr)
+<!-- Note that we removed _DUPD1_ given that it's standard deviation = 0.  -->
 
-# dplyr::select(MAC_rankNorm, SMC_rankNorm, VesselDensity_rankNorm, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
-temp <- expression_wide %>%
-  column_to_rownames("study_number") %>%
-  dplyr::select(plaque_phenotypes_cat, plaque_phenotypes_num, epmajor.30days, epmajor.3years, target_genes_qc) %>% 
-  drop_na() %>% # drop NA 
-  mutate(across(all_of(plaque_phenotypes_cat), as.numeric)) %>% # convert factors to numeric
-  Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
+<!-- **Figure 7: correlation heatmap between expression of plaque phenotypes, secondary events (epmajor), and genes of interest** -->
+<!-- ```{r heatmap_corr, message=FALSE, warning=FALSE} -->
+<!-- library(tidyverse) -->
+<!-- library(magrittr) -->
 
-temp.cor <- cor(temp, method = "spearman") 
+<!-- # dplyr::select(MAC_rankNorm, SMC_rankNorm, VesselDensity_rankNorm, epmajor.30days, epmajor.3years, target_genes_qc) %>%  -->
+<!-- temp <- expression_wide %>% -->
+<!--   column_to_rownames("study_number") %>% -->
+<!--   dplyr::select(plaque_phenotypes_cat, plaque_phenotypes_num,  -->
+<!--                 epmajor.30days, epmajor.3years,  -->
+<!--                 AsymptSympt2G, -->
+<!--                 target_genes_qc) %>%  -->
+<!--   # drop_na() %>% # drop NA  -->
+<!--   mutate(across(all_of(plaque_phenotypes_cat), as.numeric)) %>% # convert factors to numeric -->
+<!--   mutate(across(all_of("epmajor.30days"), as.numeric)) %>% # convert factors to numeric -->
+<!--   mutate(across(all_of("AsymptSympt2G"), as.numeric)) #%>% -->
+<!--   # Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0 -->
 
-p1 <- pheatmap(data.matrix(temp.cor), 
-               scale = "none",
-               cluster_rows = TRUE, 
-               cluster_cols = TRUE,
-               legend = TRUE,
-               fontsize = 7)
+<!-- temp.cor <- ?cor(temp, method = "spearman")  -->
 
-p1 
+<!-- p1 <- pheatmap(data.matrix(temp.cor),  -->
+<!--                scale = "none", -->
+<!--                cluster_rows = TRUE,  -->
+<!--                cluster_cols = TRUE, -->
+<!--                legend = TRUE, -->
+<!--                fontsize = 7) -->
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.pdf"), plot = p1, height = 15, width = 15)
+<!-- p1  -->
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.png"), plot = p1, height = 15, width = 15)
+<!-- # ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.pdf"), plot = p1, height = 15, width = 15) -->
 
-rm(temp, temp.cor, p1)
+<!-- ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.png"), plot = p1, height = 15, width = 15) -->
 
-```
+<!-- rm(temp, temp.cor, p1) -->
 
-**Figure 8: correlation heatmap between expression of genes of interest**
+<!-- ``` -->
+
+**Figure 7: correlation heatmap between expression of genes of interest**
 ```{r heatmap_corr_genes, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
@@ -1857,7 +1982,7 @@ p1 <- pheatmap(data.matrix(temp.cor),
                fontsize = 7)
 p1
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.pdf"), plot = p1, height = 15, width = 15)
+# ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.pdf"), plot = p1, height = 15, width = 15)
 
 ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.target_genes.png"), plot = p1, height = 15, width = 15)
 
@@ -1868,13 +1993,19 @@ rm(temp, temp.cor, p1)
 
 ### Plaque vulnerability index
 
-**Figure 9: genes of interest plotted over plaque vulnerability index**
+**Figure 8: genes of interest plotted over plaque vulnerability index**
 ```{r boxplot_function, plaque vulnerability index, fig.width = 12, fig.height = 10}
 # Make directory for plots
-ifelse(!dir.exists(file.path(QC_loc, "/PlaqueVulnerabilityIndex")), 
-       dir.create(file.path(QC_loc, "/PlaqueVulnerabilityIndex")), 
+ifelse(!dir.exists(file.path(QC_loc, "/PVI")), 
+       dir.create(file.path(QC_loc, "/PVI")), 
        FALSE)
-PVI_loc = paste0(QC_loc,"/PlaqueVulnerabilityIndex")
+PVI_loc = paste0(QC_loc,"/PVI")
+
+# Make directory for plots
+ifelse(!dir.exists(file.path(QC_loc, "/PVI_Sex")), 
+       dir.create(file.path(QC_loc, "/PVI_Sex")), 
+       FALSE)
+PVI_SEX_loc = paste0(QC_loc,"/PVI_Sex")
 
 # gather expression_data_sel df into long df form for annotation, plotting and statistics
 expression_long_PVI <-
@@ -1937,11 +2068,11 @@ for(GENE in target_genes_qc){
   
   cat(paste0("Saving image for ", GENE,".\n"))
   ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.png"), plot = p1)
-  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.pdf"), plot = p1)
+  # ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.pdf"), plot = p1)
 
   cat(paste0("Saving image for ", GENE,", sex-stratified.\n"))
-  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.png"), plot = p2)
-  ggsave(filename = paste0(PVI_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.pdf"), plot = p2)
+  ggsave(filename = paste0(PVI_SEX_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.png"), plot = p2)
+  # ggsave(filename = paste0(PVI_SEX_loc, "/", Today, ".",GENE,".expression_vs_plaquevulnerabilityindex.sex.pdf"), plot = p2)
 
   rm(temp, p1 )
   
@@ -1950,7 +2081,7 @@ for(GENE in target_genes_qc){
 
 ```
 
-**Figure 10: correlation heatmap between plaque vulnerability index, and genes of interest**
+**Figure 9: correlation heatmap between plaque vulnerability index, and genes of interest**
 ```{r heatmap_corr PVI, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(magrittr)
@@ -1962,7 +2093,7 @@ expression_wide_PVI <- expression_long_PVI %>%
 temp <- expression_wide_PVI %>%
   column_to_rownames("study_number") %>%
   dplyr::select("levels", target_genes_qc) %>% 
-  drop_na() %>% # drop NA 
+  # drop_na() %>% # drop NA 
   mutate(across(all_of("levels"), as.numeric)) #%>% # convert factors to numeric
   # Filter(function(x) sd(x) != 0, .) # filter variables with sd = 0
 # str(temp)
@@ -1982,7 +2113,7 @@ p1 <- pheatmap(data.matrix(temp.cor),
 
 p1 
 
-ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.pdf"), plot = p1, height = 15, width = 15)
+# ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.pdf"), plot = p1, height = 15, width = 15)
 
 ggsave(filename = paste0(PLOT_loc, "/", Today, ".correlations.PVI.png"), plot = p1, height = 15, width = 15)
 
@@ -2000,11 +2131,11 @@ d <- expression_wide_PVI %>%
 
 names(d)[names(d) == "levels"] <- "Plaque Vulnerability Index"
 
-kw_results_PVI <- var_pairs %>%
+kw_results_PVI <- as.data.frame(var_pairs %>%
   dplyr::mutate(r.test = purrr::map2(genes, variables, ~ stats::kruskal.test(d[[.x]], d[[.y]])),
                 r.test = purrr::map(r.test, broom::tidy)) %>%
   tidyr::unnest(r.test) %>%
-  mutate(padj = p.adjust(p.value, method = "holm"))
+  mutate(padj = p.adjust(p.value, method = "holm")))
 
 DT::datatable(kw_results_PVI)
 
@@ -2033,8 +2164,8 @@ rm(temp)
 
 ------
 
-    Version:      v1.0.6
-    Last update:  2021-11-30
+    Version:      v1.0.8
+    Last update:  2021-12-14
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -2051,6 +2182,7 @@ rm(temp)
     
     
     **Changes log**
+    * v1.0.7 Update to the count data.
     * v1.0.6 Update to the gene list.
     * v1.0.5 Update to the gene list.
     * v1.0.4 Add correlation analysis and heatmap for plaque vulnerability index.
