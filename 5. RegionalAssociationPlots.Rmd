@@ -1,5 +1,5 @@
 ---
-title: "Parsing 1000G GWAS summary statistics for CAC."
+title: "Regional association plotting of 11 loci associated with CAC."
 author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
@@ -64,10 +64,10 @@ MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr1
 
 GWAS_loc=paste0(PLINK_loc,"/_GWAS_Datasets/_CHARGE_CAC")
 
-PROJECT_loc = paste0(PLINK_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+PROJECT_loc = paste0(PLINK_loc, "/analyses/consortia/CHARGE_1000G_CAC")
 
 # use this if there is relevant information here.
-TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+TARGET_loc = paste0(PROJECT_loc, "/targets")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
 TRAIT_OF_INTEREST = "CAC" # Phenotype
@@ -111,33 +111,8 @@ list.files()
 ```
 
 _... a package-installation function ..._
-```{r Function: installations}
-install.packages.auto <- function(x) { 
-  x <- as.character(substitute(x)) 
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else { 
-    # Update installed packages - this may mean a full upgrade of R, which in turn
-    # may not be warrented. 
-    #update.install.packages.auto(ask = FALSE) 
-    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
-  }
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else {
-    if (!requireNamespace("BiocManager"))
-      install.packages("BiocManager")
-    BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
-    
-    # Code for older versions of R (<3.5.0)
-    # source("http://bioconductor.org/biocLite.R")
-    # Update installed packages - this may mean a full upgrade of R, which in turn
-    # may not be warrented.
-    # biocLite(character(), ask = FALSE) 
-    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  }
-}
+```{r}
+source(paste0(PROJECT_loc, "/scripts/functions.R"))
 ```
 
 
@@ -252,79 +227,7 @@ We will parse the data to create regional association plots for each of the 11 l
 We need to load the data first.
 ```{r}
 
-gwas_sumstats <- fread(paste0(GWAS_loc,"/CAC1000G_EA_AA_FINAL_FUMA.txt.gz"),
-                         showProgress = TRUE)
-```
-
-
-# Summary
-
-We provide some summary statistics here.
-
-```{r}
-cat("Getting a head (top) of the summary statistics.\n")
-
-DT::datatable(head(gwas_sumstats), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
-```
-
-```{r}
-cat("\n\nGetting summary statistics.\n")
-summary(gwas_sumstats)
-```
-
-```{r}
-cat(paste0("\nTotal number of variants: "), format(length(gwas_sumstats$Chr), big.mark = ","),".\n")
-
-cat(paste0("\nAvailable chromosomes: "), format(unique(gwas_sumstats$Chr), big.mark = ","),".\n")
-
-cat("\n\nEffect allele frequency summary: \n")
-summary(gwas_sumstats$Freq1)
-
-
-cat("\nEffect size summary: \n")
-summary(gwas_sumstats$Effect)
-
-
-```
-## Plotting
-
-```{r}
-
-gghistogram(
-  gwas_sumstats,
-  x = "Freq1",
-  y = "..count..",
-  color = uithof_color[16],
-  fill = uithof_color[16],
-  linetype = "solid",
-  alpha = 0.5,
-  bins = 50,
-  title = "Effect allele frequency distribution",
-  xlab = "effect allele frequency",
-  ylab = "counts",
-  add = "median",
-  add.params = list(linetype = "dashed"),
-  ggtheme = theme_pubr())
-```
-
-
-```{r}
-
-gghistogram(
-  gwas_sumstats,
-  x = "Effect",
-  y = "..count..",
-  color = uithof_color[3],
-  fill = uithof_color[3],
-  linetype = "solid",
-  alpha = 0.5,
-  bins = 50,
-  title = "Effect size distribution",
-  xlab = "effect size",
-  ylab = "counts",
-  add = "median",
-  add.params = list(linetype = "dashed"),
-  ggtheme = theme_pubr())
+readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
 
 ```
 
@@ -338,14 +241,6 @@ variant_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
 DT::datatable(variant_list)
 
-```
-
-Since we don't need all the data, we will drop some here.
-
-```{r}
-gwas_sumstats_racer <- subset(gwas_sumstats,
-                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue")
-                              )
 ```
 
 
@@ -409,14 +304,13 @@ for(VARIANT in variants_of_interest){
 
 ------
 
-    Version:      v1.0.0
-    Last update:  2021-12-14
+    Version:      v1.1.0
+    Last update:  2022-01-25
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
-    Description:  Script to parse GWAS summary statistics.
+    Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
-    * v1.0.1 Creating regional association plots for the top hits.
     * v1.0.0 Initial version. 
 
 ------
@@ -429,12 +323,12 @@ sessionInfo()
 # Saving environment
 ```{r Saving}
 rm(gwas_sumstats)
-save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".GWASSumStats.RData"))
+save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".RegionalAssociationPlots.RData"))
 ```
 
 
 ------
-<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
 ------
 
   

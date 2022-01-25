@@ -1,11 +1,9 @@
-# Mapping CAC susceptibility loci to atherosclerotic plaques
-
-_Project ID_: `AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC`.
+# Multi-ancestry genome-wide analysis of coronary artery calcification identifies novel loci, functional pathways, and druggable targets
 
 ## Background
 <!-- Please add a brief introduction to explain what the project is about    -->
 
-Collaboration for mapping targets from the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ with Maryam Kavousi, Patricia Peyser, and Maxime Bos.
+Collaboration for mapping targets from the CHARGE Consortium 1000G GWAS on _coronary artery calcification (CAC)_ to the carotid plaque data in the [Athero-Express Biobank Study](http://www.atheroexpress.nl) with Maryam Kavousi, Maxime Bos, Clint L. Miller, and Pat Peyser.
 
 ## Athero-Express Biobank Study
 We have bulk RNAseq (n = 635 samples) and single-cell RNAseq data, genome-wide methylation (Illumina 450K) in n ± 600, as well as overlapping genetic data for ±2,100 individuals with extensive histological plaque characterisation. We will address the following questions:
@@ -16,16 +14,11 @@ We have bulk RNAseq (n = 635 samples) and single-cell RNAseq data, genome-wide m
 
 Ideally, we would like to map the variants to the expression and methylation data (molecular QTL mapping), but this is pending finalizing our molQTL mapping.
 
-We expect new plasma-based OLINK data (for the 'TO_AITION' projecty) in Q4 2020. We agreed that we would keep this in mind, we could run some additional analyses when asked during the revision stage of the manuscript.
-
-- Correlation of variants to proteins from the OLINK-platform
-
 ## Methods
 
 ### Mapping genes to single cells 
 
 We will use the last dataset from the scRNAseq data, including 35 individuals, to project target genes. 
-
 
 ### Genetic analyses
 
@@ -81,27 +74,27 @@ We projected target genes to the single-cell RNAseq data derived from 37 carotid
 
 ## Where do I start?
 
-You can load this project in RStudio by opening the file called 'AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC.Rproj'.
+You can load this project in RStudio by opening the file called 'CHARGE_1000G_CAC.Rproj'.
 
 ## Project structure
 
 <!--  You can add rows to this table, using "|" to separate columns.         -->
-File                                                 | Description                            | Usage         
----------------------------------------------------- | -------------------------------------- | --------------
-README.md                                            | Description of project                 | Human editable
-LICENSE                                              | User permissions                       | Read only     
-.worcs                                               | WORCS metadata YAML                    | Read only     
-renv.lock                                            | Reproducible R environment             | Read only     
-images                                               | Images directory                       | Human editable
-scripts                                              | Script to process some things          | Human editable
-bulkRNAseq                                           | Bulk RNAseq scripts and results        | Human editable
-CAC                                                  | General results                        | Human editable
-CredibleSets                                         | The credible sets used                 | Human editable
-scRNAseq                                             | Single-cell RNAseq scripts and results | Human editable
-SNP                                                  | SNP analyses scripts and results       | Human editable
-Parsing_GWASSumStats                                 | Creating regional assoc. plots         | Human editable
-AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC       | Script to process raw data             | Human editable
-AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC.Rproj | Project file                           | Loads project 
+File                       | Description                            | Usage         
+---------------------------| -------------------------------------- | --------------
+README.md                  | Description of project                 | Human editable
+LICENSE                    | User permissions                       | Read only     
+.worcs                     | WORCS metadata YAML                    | Read only     
+renv.lock                  | Reproducible R environment             | Read only     
+images                     | Images directory                       | Human editable
+scripts                    | Script to process some things          | Human editable
+bulkRNAseq                 | Bulk RNAseq scripts and results        | Human editable
+CAC                        | General results                        | Human editable
+CredibleSets               | The credible sets used                 | Human editable
+scRNAseq                   | Single-cell RNAseq scripts and results | Human editable
+SNP                        | SNP analyses scripts and results       | Human editable
+Parsing_GWASSumStats       | Creating regional assoc. plots         | Human editable
+CHARGE_1000G_CAC           | Script to process raw data             | Human editable
+CHARGE_1000G_CAC.Rproj     | Project file                           | Loads project 
 
 <!--  You can consider adding the following to this file:                    -->
 <!--  * A citation reference for your project                                -->
@@ -153,6 +146,7 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.1.0 Rename. Cleaning up of project (archiving/removing unused code and results).
     * v1.0.7 Update to the count data.
     * v1.0.6 Update to WORCS framework.
     * v1.0.6 Update code and fix coding of plaque vulnerability index (PVI) to work with SNPTEST.
@@ -167,7 +161,7 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
 --------------
 
 #### The MIT License (MIT)
-##### Copyright (c) 1979-2021 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
+##### Copyright (c) 1979-2022 Sander W. van der Laan | s.w.vanderlaan [at] gmail [dot] com.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:   
 
