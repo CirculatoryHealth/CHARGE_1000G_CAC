@@ -310,7 +310,7 @@ We are interested in 11 top loci.
 
 ```{r}
 library(openxlsx)
-variant_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "TopLoci")
+variant_list <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
 DT::datatable(variant_list)
 
