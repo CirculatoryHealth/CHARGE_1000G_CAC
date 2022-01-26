@@ -227,17 +227,19 @@ We will parse the data to create regional association plots for each of the 11 l
 We need to load the data first.
 ```{r}
 
-readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
+gwas_sumstats_racer <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
 
 ```
 
 # Regional association plotting
 
+## Top 11 loci
+
 We are interested in 11 top loci. 
 
 ```{r}
 library(openxlsx)
-variant_list <- read.xlsx(paste0(SNP_loc, "/Variants.xlsx"), sheet = "TopLoci")
+variant_list <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
 DT::datatable(variant_list)
 
@@ -265,7 +267,8 @@ for(VARIANT in variants_of_interest){
   tempCHR <- subset(variant_list, rsID == VARIANT)[,4]
   tempSTART <- subset(variant_list, rsID == VARIANT)[,16]
   tempEND <- subset(variant_list, rsID == VARIANT)[,17]
-  
+  VARIANTNO <- subset(variant_list, rsID == VARIANT)[,1]
+
   cat("\nSubset required data.\n")
   temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
   
@@ -283,8 +286,8 @@ for(VARIANT in variants_of_interest){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", VARIANTNO, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", VARIANTNO, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -297,8 +300,9 @@ for(VARIANT in variants_of_interest){
 ```
 
 
+## Additional regional plots
 
-
+[add in the IGBP3 and ARID5B loci]
 
 # Session information
 
@@ -322,7 +326,7 @@ sessionInfo()
 
 # Saving environment
 ```{r Saving}
-rm(gwas_sumstats)
+
 save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".RegionalAssociationPlots.RData"))
 ```
 
