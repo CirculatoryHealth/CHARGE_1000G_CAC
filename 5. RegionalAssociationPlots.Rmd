@@ -52,7 +52,8 @@ _Set locations and working directories..._
 
 ### MacBook Air
 ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
-STORAGE_loc = "/Volumes/LaCie/"
+# STORAGE_loc = "/Volumes/LaCie/"
+STORAGE_loc = "/Users/slaan3/"
 
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
@@ -251,8 +252,10 @@ Let's do some plotting.
 install.packages.auto("devtools") 
 library(devtools) 
 install_github("oliviasabik/RACER") 
-library(RACER)
+```
 
+```{r}
+library(RACER)
 # Make directory for plots
 ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER")), 
        dir.create(file.path(PROJECT_loc, "/RACER")), 
@@ -264,10 +267,10 @@ variants_of_interest <- c(variant_list$rsID)
 for(VARIANT in variants_of_interest){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
-  tempCHR <- subset(variant_list, rsID == VARIANT)[,4]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,16]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,17]
-  VARIANTNO <- subset(variant_list, rsID == VARIANT)[,1]
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
   temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
@@ -286,13 +289,13 @@ for(VARIANT in variants_of_interest){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", VARIANTNO, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", VARIANTNO, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
      tempCHR, tempSTART, tempEND,
-     VARIANT)
+     VARIANT, tempVARIANTnr)
   
 }
 
