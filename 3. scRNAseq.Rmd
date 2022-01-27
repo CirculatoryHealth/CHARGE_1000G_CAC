@@ -38,12 +38,11 @@ rm(list = ls())
 _Set locations, and the working directory ..._
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
-### Mac Pro
-# ROOT_loc = "/Volumes/EliteProQx2Media"
-# GENOMIC_loc = "/Users/svanderlaan/iCloud/Genomics"
+### MacBook Pro
+ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
 
-### MacBook
-ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+### MacBook Air
+# ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 STORAGE_loc = "/Volumes/LaCie/PLINK"
 
@@ -53,10 +52,10 @@ LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
 
 RAWDATA = paste0(STORAGE_loc, "/_AE_ORIGINALS/AESCRNA/prepped_data")
 
-PROJECT_loc = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
-RESULTS = paste0(STORAGE_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC/scRNAseq")
+PROJECT_loc = paste0(STORAGE_loc, "/analyses/consortia/CHARGE_1000G_CAC")
+RESULTS = paste0(STORAGE_loc, "/analyses/consortia/CHARGE_1000G_CAC/AESCRNA")
 
-TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+TARGET_loc = paste0(PROJECT_loc, "/targets")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
 cat("\nDefining phenotypes and datasets.\n")
@@ -64,10 +63,10 @@ PROJECTNAME="AESCRNA"
 
 cat("\nCreate a new analysis directory, including subdirectories.\n")
 # Analysis
-ifelse(!dir.exists(file.path(RESULTS, "/",PROJECTNAME)), 
-       dir.create(file.path(RESULTS, "/",PROJECTNAME)), 
+ifelse(!dir.exists(file.path(RESULTS)), 
+       dir.create(file.path(RESULTS)), 
        FALSE)
-ANALYSIS_loc = paste0(RESULTS,"/",PROJECTNAME)
+ANALYSIS_loc = paste0(RESULTS)
 
 # Plots
 ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
@@ -95,26 +94,7 @@ list.files()
 
 _... a package-installation function ..._
 ```{r Function: installations, echo=FALSE}
-install.packages.auto <- function(x) { 
-  x <- as.character(substitute(x)) 
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else { 
-    # Update installed packages - this may mean a full upgrade of R, which in turn
-    # may not be warrented. 
-    # update.install.packages.auto(ask = FALSE) 
-    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
-  }
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else {
-    if (!requireNamespace("BiocManager"))
-      install.packages("BiocManager")
-    # BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
-    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  }
-}
+source(paste0(PROJECT_loc, "/scripts/functions.R"))
 ```
 
 _... and load those packages._
@@ -247,9 +227,9 @@ Here we map the CHARGE Consortium 1000G GWAS on _coronary artery calcification (
 ```{r CAC targets}
 library(openxlsx)
 
-CAC_gene_list <- read.xlsx(paste0(PROJECT_loc, "/SNP/Genes.xlsx"))
+CAC_gene_list <- read.xlsx(paste0(TARGET_loc, "/Genes.xlsx"))
 
-CAC_variants <- read.xlsx(paste0(PROJECT_loc, "/SNP/Variants.xlsx"))
+CAC_variants <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"))
 
 
 DT::datatable(CAC_gene_list)
