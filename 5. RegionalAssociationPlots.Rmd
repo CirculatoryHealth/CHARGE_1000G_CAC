@@ -300,9 +300,9 @@ for(VARIANT in variants_of_interest){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.ps"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -345,7 +345,7 @@ for(VARIANT in variants_of_interest_manygenes){
   cat(paste0("Saving image for ", VARIANT,".\n"))
   ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
   ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.ps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -385,7 +385,7 @@ for(VARIANT in variants_of_interest_cxcl12){
   cat(paste0("Saving image for ", VARIANT,".\n"))
   ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
   ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.ps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
