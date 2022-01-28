@@ -154,46 +154,84 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   if ("LD" %in% colnames(in.dt) && "LD_BIN" %in% colnames(in.dt)) {
     c = ggplot2::ggplot(gene_sub, ggplot2::aes_string(x = "value", 
                                                       y = "y_value")) + ggplot2::geom_line(ggplot2::aes_string(group = "GENE_NAME"), 
-                                                                                           size = 2) + ggplot2::theme_bw() + ggplot2::geom_text(data = plot_lab, 
+                                                                                           size = 2) + ggplot2::theme_minimal() + ggplot2::geom_text(data = plot_lab, 
                                                                                                                                                 ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
-                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_text(color = "white", 
-                                                                                                                                                                                                                                             size = 28), axis.text.y = ggplot2::element_blank(), 
-                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank()) + ggplot2::xlab(paste0("Chromosome ", 
-                                                                                                                                                                                                                                                                        chr_in, " Position")) + ggplot2::coord_cartesian(xlim = c(start, 
+                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_text(color = "transparent", size = 28), 
+                                                                                                                                                                                                        axis.text.y = ggplot2::element_blank(), 
+                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank(),
+                                                                                                                                                                                                        panel.border = element_blank(), 
+                                                                                                                                                                                                        panel.grid.major = element_blank(),
+                                                                                                                                                                                                        panel.grid.minor = element_blank(),
+                                                                                                                                                                                                        axis.line.x = element_line(colour = "#595A5C")) + ggplot2::xlab(paste0("chromosome ", 
+                                                                                                                                                                                                                                                                        chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
                                                                                                                                                                                                                                                                                                                                   end), ylim = c(0, (max(gene_sub$y_value) + 1)))
     b = ggplot2::ggplot(in.dt, ggplot2::aes_string(x = "POS", 
                                                    y = "LOG10P", color = "LD_BIN")) + ggplot2::geom_point() + 
-      ggplot2::scale_colour_manual(values = c(`1.0-0.8` = "red", 
-                                              `0.8-0.6` = "darkorange1", `0.6-0.4` = "green1", 
-                                              `0.4-0.2` = "skyblue1", `0.2-0.0` = "navyblue", 
-                                              `NA` = "grey"), drop = FALSE) + ggplot2::theme_bw() + 
-      ggplot2::xlab("Chromosome Position") + ggplot2::ylab("-log10(p-value)") + 
+      ggplot2::scale_colour_manual(values = c(`1.0-0.8` = "#DB003F", #"red", 
+                                              `0.8-0.6` = "#F59D10", #"darkorange1", 
+                                              `0.6-0.4` = "#49A01D", #"green1", 
+                                              `0.4-0.2` = "#1290D9", #"skyblue1", 
+                                              `0.2-0.0` = "#4C81BF", #"navyblue", 
+                                              `NA` = "#A2A3A4" # "grey"
+                                              ), 
+                                   drop = FALSE) + 
+                                   labs(color = bquote(LD~r^2)) + 
+      ggplot2::theme(panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(), 
+                     axis.line.x = element_blank(),
+                     axis.line.y = element_line(colour = "#595A5C"),
+                     axis.title.x=element_blank(),
+                     axis.text.x=element_blank(),
+                     axis.ticks.x=element_blank()) +  
+      # ggplot2::xlab("Chromosome Position") + 
+      # ggplot2::ylab("-log10(p-value)") + 
+      ggplot2::ylab(bquote(-log[10]~(p-value))) + 
       ggplot2::coord_cartesian(xlim = c(start, end), ylim = c(min(in.dt$LOG10P), 
                                                               max(in.dt$LOG10P)))
   }
   else {
     c = ggplot2::ggplot(gene_sub, ggplot2::aes_string(x = "value", 
                                                       y = "y_value")) + ggplot2::geom_line(ggplot2::aes_string(group = "GENE_NAME"), 
-                                                                                           size = 2) + ggplot2::theme_bw() + ggplot2::geom_text(data = plot_lab, 
+                                                                                           size = 2) + ggplot2::theme_minimal() + ggplot2::geom_text(data = plot_lab, 
                                                                                                                                                 ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
-                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_text(color = "white", 
-                                                                                                                                                                                                                                             size = 28), axis.text.y = ggplot2::element_blank(), 
-                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank()) + ggplot2::xlab(paste0("Chromosome ", 
-                                                                                                                                                                                                                                                                        chr_in, " Position")) + ggplot2::coord_cartesian(xlim = c(start, 
+                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_blank(), #ggplot2::element_text(color = "white", size = 28),  
+                                                                                                                                                                                                        axis.text.y = ggplot2::element_blank(), 
+                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank(),
+                                                                                                                                                                                                        panel.border = element_blank(), 
+                                                                                                                                                                                                        panel.grid.major = element_blank(),
+                                                                                                                                                                                                        panel.grid.minor = element_blank(),
+                                                                                                                                                                                                        axis.line.x = element_line(colour = "#595A5C")) + ggplot2::xlab(paste0("chromosome ", 
+                                                                                                                                                                                                                                                                        chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
                                                                                                                                                                                                                                                                                                                                   end), ylim = c(0, (max(gene_sub$y_value) + 1)))
     b = ggplot2::ggplot(in.dt, ggplot2::aes_string(x = "POS", 
-                                                   y = "LOG10P")) + ggplot2::geom_point() + ggplot2::theme_bw() + 
-      ggplot2::xlab("Chromosome Position") + ggplot2::ylab("-log10(p-value)") + 
+                                                   y = "LOG10P")) + ggplot2::geom_point() + ggplot2::theme(panel.border = element_blank(), 
+                                                                                                           panel.grid.major = element_blank(),
+                                                                                                           panel.grid.minor = element_blank(), 
+                                                                                                           axis.line.x = element_blank(),
+                                                                                                           axis.line.y = element_line(colour = "#595A5C"),
+                                                                                                           axis.title.x=element_blank(),
+                                                                                                           axis.text.x=element_blank(),
+                                                                                                           axis.ticks.x=element_blank()) + 
+      # ggplot2::xlab("Chromosome Position") + 
+      # ggplot2::ylab("-log10(p-value)") + 
+      ggplot2::ylab(bquote(-log[10]~(p-value))) + 
       ggplot2::coord_cartesian(xlim = c(start, end), ylim = c(min(in.dt$LOG10P), 
                                                               max(in.dt$LOG10P)))
   }
   if (label_lead == TRUE) {
-    b = b + geom_point(data = label_data, aes_string(x = "POS", 
-                                                     y = "LOG10P"), color = "purple")
-    b = b + geom_text(data = label_data, aes_string(label = "RS_ID"), 
-                      color = "black", size = 3, hjust = 1.25)
+    b = b + geom_point(data = label_data, 
+                       aes_string(x = "POS", 
+                                  y = "LOG10P"), 
+                       color = "#9A3480", #"purple")
+                       fill = "#9A3480",
+                       size = 4, shape = 23) 
+    
+    b = b + geom_text(data = label_data, 
+                      aes_string(label = "RS_ID"), 
+                      color = "black", 
+                      size = 4, hjust = 1.25)
   }
   ggpubr::ggarrange(b, c, heights = c(3, 1), nrow = 2, ncol = 1, 
-                    common.legend = TRUE, legend = "right") + 
-    ggpubr::ggpar(legend.title=expression("LD " ~ r^2 ~ ""))
+                    common.legend = TRUE, legend = "right")
 }
