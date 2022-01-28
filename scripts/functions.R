@@ -32,7 +32,8 @@ install.packages.auto <- function(x) {
 
 singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_coding", 
           plotby, gene_plot = NULL, snp_plot = NULL, start_plot = NULL, 
-          end_plot = NULL, label_lead = FALSE, grey_colors = FALSE) 
+          end_plot = NULL, label_lead = FALSE, 
+          grey_colors = FALSE, gene_track_h = 3, gene_name_s = 2.5) 
   {
   if (missing(assoc_data)) {
     stop("Please provide a data set to plot.")
@@ -154,17 +155,21 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   if ("LD" %in% colnames(in.dt) && "LD_BIN" %in% colnames(in.dt)) {
     c = ggplot2::ggplot(gene_sub, ggplot2::aes_string(x = "value", 
                                                       y = "y_value")) + ggplot2::geom_line(ggplot2::aes_string(group = "GENE_NAME"), 
-                                                                                           size = 2) + ggplot2::theme_minimal() + ggplot2::geom_text(data = plot_lab, 
-                                                                                                                                                ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
-                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_text(color = "transparent", size = 28), 
-                                                                                                                                                                                                        axis.text.y = ggplot2::element_blank(), 
-                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank(),
-                                                                                                                                                                                                        panel.border = element_blank(), 
-                                                                                                                                                                                                        panel.grid.major = element_blank(),
-                                                                                                                                                                                                        panel.grid.minor = element_blank(),
-                                                                                                                                                                                                        axis.line.x = element_line(colour = "#595A5C")) + ggplot2::xlab(paste0("chromosome ", 
-                                                                                                                                                                                                                                                                        chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
-                                                                                                                                                                                                                                                                                                                                  end), ylim = c(0, (max(gene_sub$y_value) + 1)))
+                                                                                           size = 2) + ggplot2::theme_minimal() + 
+      ggplot2::geom_text(data = plot_lab, 
+                               ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
+                               hjust = -0.1, vjust = 0.3,
+                               size = gene_name_s) + 
+      ggplot2::theme(axis.title.y = ggplot2::element_text(color = "transparent", size = 28),
+                     axis.text.y = ggplot2::element_blank(), 
+                     axis.ticks.y = ggplot2::element_blank(),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.line.x = element_line(colour = "#595A5C")) + 
+      ggplot2::xlab(paste0("chromosome ", 
+                           chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
+                                                                                     end), ylim = c(0, (max(gene_sub$y_value) + 0.25)))
     b = ggplot2::ggplot(in.dt, ggplot2::aes_string(x = "POS", 
                                                    y = "LOG10P", color = "LD_BIN")) + ggplot2::geom_point() + 
       ggplot2::scale_colour_manual(values = c(`1.0-0.8` = "#DB003F", #"red", 
@@ -193,17 +198,21 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   else {
     c = ggplot2::ggplot(gene_sub, ggplot2::aes_string(x = "value", 
                                                       y = "y_value")) + ggplot2::geom_line(ggplot2::aes_string(group = "GENE_NAME"), 
-                                                                                           size = 2) + ggplot2::theme_minimal() + ggplot2::geom_text(data = plot_lab, 
-                                                                                                                                                ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
-                                                                                                                                                hjust = -0.1, vjust = 0.3, size = 2.5) + ggplot2::theme(axis.title.y = ggplot2::element_blank(), #ggplot2::element_text(color = "white", size = 28),  
-                                                                                                                                                                                                        axis.text.y = ggplot2::element_blank(), 
-                                                                                                                                                                                                        axis.ticks.y = ggplot2::element_blank(),
-                                                                                                                                                                                                        panel.border = element_blank(), 
-                                                                                                                                                                                                        panel.grid.major = element_blank(),
-                                                                                                                                                                                                        panel.grid.minor = element_blank(),
-                                                                                                                                                                                                        axis.line.x = element_line(colour = "#595A5C")) + ggplot2::xlab(paste0("chromosome ", 
-                                                                                                                                                                                                                                                                        chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
-                                                                                                                                                                                                                                                                                                                                  end), ylim = c(0, (max(gene_sub$y_value) + 1)))
+                                                                                           size = 2) + ggplot2::theme_minimal() + 
+      ggplot2::geom_text(data = plot_lab, 
+                               ggplot2::aes_string(x = "value", y = "y_value", label = "GENE_NAME"), 
+                               hjust = -0.1, vjust = 0.3,
+                               size = gene_name_s) + 
+      ggplot2::theme(axis.title.y = ggplot2::element_blank(), #ggplot2::element_text(color = "white", size = 28),  
+                     axis.text.y = ggplot2::element_blank(), 
+                     axis.ticks.y = ggplot2::element_blank(),
+                     panel.border = element_blank(), 
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     axis.line.x = element_line(colour = "#595A5C")) + 
+      ggplot2::xlab(paste0("chromosome ", 
+                           chr_in, " position")) + ggplot2::coord_cartesian(xlim = c(start, 
+                                                                                     end), ylim = c(0, (max(gene_sub$y_value) + 0.25)))
     b = ggplot2::ggplot(in.dt, ggplot2::aes_string(x = "POS", 
                                                    y = "LOG10P")) + ggplot2::geom_point() + ggplot2::theme(panel.border = element_blank(), 
                                                                                                            panel.grid.major = element_blank(),
@@ -236,6 +245,6 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
     b = b + geom_point(color = "#A2A3A4", fill = "#A2A3A4")
   }
   
-  ggpubr::ggarrange(b, c, heights = c(3, 1), nrow = 2, ncol = 1, 
+  ggpubr::ggarrange(b, c, heights = c(gene_track_h, 1), nrow = 2, ncol = 1, 
                     common.legend = TRUE, legend = "right")
 }

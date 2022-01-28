@@ -147,22 +147,25 @@ install.packages.auto("BlandAltmanLeh")
 
 # Install the devtools package from Hadley Wickham
 install.packages.auto('devtools')
+library(devtools) 
 
 # for plotting
 install.packages.auto("pheatmap")
 install.packages.auto("forestplot")
 install.packages.auto("ggplot2")
-
 install.packages.auto("ggpubr")
+install.packages.auto("ggrepel")
 
 install.packages.auto("UpSetR")
 
 devtools::install_github("thomasp85/patchwork")
 
 # For regional association plots
-install.packages.auto("devtools") 
-library(devtools) 
 install_github("oliviasabik/RACER") 
+
+# Install ggrepel package if needed
+
+library(ggrepel)
 
 ```
 
@@ -269,7 +272,53 @@ RACER_loc = paste0(PROJECT_loc,"/RACER")
 
 variants_of_interest <- c(variant_list$rsID)
 
+variants_of_interest_fewgenes <- c("rs9349379", "rs3844006", "rs2854746", "rs4977575", "rs10899970", "rs9633535", "rs11063120", "rs9515203", "rs7182103")
+
 for(VARIANT in variants_of_interest){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
+
+  cat("\nSubset required data.\n")
+  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  
+  cat("\nFormatting association data.\n")
+  temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
+
+  cat("\nGetting LD data.\n")
+  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  
+  cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
+  # source(paste0(PROJECT_loc, "/scripts/functions.R"))
+  p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
+                               chr = tempCHR, build = "hg19", 
+                               plotby = "snp", snp_plot = VARIANT,
+                               label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
+  
+  print(p1)
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.ps"), plot = last_plot())
+  
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
+  
+}
+
+
+```
+
+```{r}
+variants_of_interest_manygenes <- c("rs7412", "rs10762577")
+source(paste0(PROJECT_loc, "/scripts/functions.R"))
+
+for(VARIANT in variants_of_interest_manygenes){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
@@ -290,7 +339,7 @@ for(VARIANT in variants_of_interest){
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
                                chr = tempCHR, build = "hg19", 
                                plotby = "snp", snp_plot = VARIANT,
-                               label_lead = TRUE)
+                               label_lead = TRUE, gene_track_h = 0.75, gene_name_s = 1.75)
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
@@ -304,10 +353,7 @@ for(VARIANT in variants_of_interest){
      VARIANT, tempVARIANTnr)
   
 }
-
-
 ```
-
 
 ## Additional regional plots
 
@@ -322,6 +368,7 @@ DT::datatable(add_list)
 ```
 
 ```{r}
+library(RACER)
 # Make directory for plots
 ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER")), 
        dir.create(file.path(PROJECT_loc, "/RACER")), 
@@ -349,12 +396,13 @@ for(VARIANT in variants_of_interest){
   temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
-  source(paste0(PROJECT_loc, "/scripts/functions.R"))
+  # source(paste0(PROJECT_loc, "/scripts/functions.R"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
-                               chr = tempCHR, build = "hg19", 
-                               plotby = "coord", snp_plot = VARIANT,
-                               start_plot = tempSTART, end_plot = tempEND,
-                               label_lead = FALSE, grey_colors = TRUE)
+                         chr = tempCHR, build = "hg19", 
+                         plotby = "coord", snp_plot = VARIANT,
+                         start_plot = tempSTART, end_plot = tempEND,
+                         label_lead = FALSE, 
+                         grey_colors = TRUE, gene_track_h = 3, gene_name_s = 1.75)
   
   print(p1)
   
@@ -362,11 +410,11 @@ for(VARIANT in variants_of_interest){
   ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = last_plot())
   ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = last_plot())
   ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = last_plot())
-  
-  # rm(temp, p1,
-  #    temp_f, temp_f_ld,
-  #    tempCHR, tempSTART, tempEND,
-  #    VARIANT, tempNAME)
+
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempNAME)
   
 }
 ```
