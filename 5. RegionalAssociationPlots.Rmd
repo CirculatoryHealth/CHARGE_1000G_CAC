@@ -349,24 +349,24 @@ for(VARIANT in variants_of_interest){
   temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
-  
+  source(paste0(PROJECT_loc, "/scripts/functions.R"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
                                chr = tempCHR, build = "hg19", 
                                plotby = "coord", snp_plot = VARIANT,
                                start_plot = tempSTART, end_plot = tempEND,
-                               label_lead = TRUE)
+                               label_lead = FALSE, grey_colors = TRUE)
   
   print(p1)
   
   cat(paste0("Saving image for ", VARIANT,".\n"))
   ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = last_plot())
   ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.ps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = last_plot())
   
-  rm(temp, p1,
-     temp_f, temp_f_ld,
-     tempCHR, tempSTART, tempEND,
-     VARIANT, tempNAME)
+  # rm(temp, p1,
+  #    temp_f, temp_f_ld,
+  #    tempCHR, tempSTART, tempEND,
+  #    VARIANT, tempNAME)
   
 }
 ```

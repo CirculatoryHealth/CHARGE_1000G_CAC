@@ -32,7 +32,7 @@ install.packages.auto <- function(x) {
 
 singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_coding", 
           plotby, gene_plot = NULL, snp_plot = NULL, start_plot = NULL, 
-          end_plot = NULL, label_lead = FALSE) 
+          end_plot = NULL, label_lead = FALSE, grey_colors = FALSE) 
   {
   if (missing(assoc_data)) {
     stop("Please provide a data set to plot.")
@@ -232,6 +232,10 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
                       color = "black", 
                       size = 4, hjust = 1.25)
   }
+  if (grey_colors == TRUE) {
+    b = b + geom_point(color = "#A2A3A4", fill = "#A2A3A4")
+  }
+  
   ggpubr::ggarrange(b, c, heights = c(3, 1), nrow = 2, ncol = 1, 
                     common.legend = TRUE, legend = "right")
 }
