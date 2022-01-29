@@ -426,7 +426,7 @@ sessionInfo()
 
 ```{r Saving}
 # saving the data
-# saveRDS(gwas_sumstats, file = paste0(OUT_loc, "/gwas_sumstats_complete.rds"))
+saveRDS(gwas_sumstats, file = paste0(OUT_loc, "/gwas_sumstats_complete.rds"))
 
 # removing it
 rm(gwas_sumstats, gwas_sumstats_racer)
