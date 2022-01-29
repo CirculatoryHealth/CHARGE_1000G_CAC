@@ -39,20 +39,30 @@ pander::panderOptions("table.split.table", Inf)
 ```
 
 # Setup
+
 We will clean the environment, setup the locations, define colors, and create a datestamp.
 
-_Clean the environment._
+*Clean the environment.*
+
 ```{r echo = FALSE}
+
 rm(list = ls())
+
 ```
 
-_Set locations and working directories..._
+*Set locations and working directories...*
+
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
+### MacBook Pro
+ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
+# STORAGE_loc = "/Volumes/LaCie/"
+STORAGE_loc = "/Users/swvanderlaan/"
 
 ### MacBook Air
-ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
-STORAGE_loc = "/Volumes/LaCie/"
+# ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+# STORAGE_loc = "/Volumes/LaCie/"
+# STORAGE_loc = "/Users/slaan3/"
 
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
@@ -110,13 +120,14 @@ list.files()
 
 ```
 
-_... a package-installation function ..._
+*... a package-installation function ...*
+
 ```{r}
 source(paste0(PROJECT_loc, "/scripts/functions.R"))
 ```
 
+*... and load those packages.*
 
-_... and load those packages._
 ```{r loading_packages, message=FALSE, warning=FALSE}
 install.packages.auto("readr")
 install.packages.auto("optparse")
@@ -154,9 +165,17 @@ install.packages.auto("UpSetR")
 
 devtools::install_github("thomasp85/patchwork")
 
+# https://github.com/YinLiLin/CMplot
+install.packages.auto("CMplot")
+library("CMplot")
+
+# if you want to use the latest version on GitHub:
+# source("https://raw.githubusercontent.com/YinLiLin/CMplot/master/R/CMplot.r")
+
 ```
 
-_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+*We will create a datestamp and define the Utrecht Science Park Colour Scheme*.
+
 ```{r Setting: Colors}
 
 Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
@@ -220,17 +239,21 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 
 # Introduction
 
-We will parse the data to facilitate the creation of regional association plots for each of the 11 loci. 
+We will parse the data to facilitate the creation of regional association plots for each of the 11 loci.
 
 # Load data
 
 We need to load the data first.
+
 ```{r}
+# when we need to load the data
 
-gwas_sumstats <- fread(paste0(GWAS_loc,"/CAC1000G_EA_AA_FINAL_FUMA.txt.gz"),
-                         showProgress = TRUE)
+gwas_sumstats <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_complete.rds"))
+
+# gwas_sumstats <- fread(paste0(GWAS_loc,"/CAC1000G_EA_AA_FINAL_FUMA.txt.gz"),
+#                          showProgress = TRUE)
+
 ```
-
 
 # Summary statistics
 
@@ -239,15 +262,18 @@ We provide some summary statistics here.
 ```{r}
 cat("Getting a head (top) of the summary statistics.\n")
 
-DT::datatable(head(gwas_sumstats), caption = "Top of GWAS Summary Statistics for LocusZoom.") 
+DT::datatable(head(gwas_sumstats), caption = "Top of GWAS Summary Statistics for regional association plots") 
+
 ```
 
 ```{r}
 cat("\n\nGetting summary statistics.\n")
 summary(gwas_sumstats)
+
 ```
 
 ```{r}
+
 cat(paste0("\nTotal number of variants: "), format(length(gwas_sumstats$Chr), big.mark = ","),".\n")
 
 cat(paste0("\nAvailable chromosomes: "), format(unique(gwas_sumstats$Chr), big.mark = ","),".\n")
@@ -258,7 +284,6 @@ summary(gwas_sumstats$Freq1)
 
 cat("\nEffect size summary: \n")
 summary(gwas_sumstats$Effect)
-
 
 ```
 
@@ -283,7 +308,6 @@ gghistogram(
   ggtheme = theme_pubr())
 ```
 
-
 ```{r}
 
 gghistogram(
@@ -306,58 +330,111 @@ gghistogram(
 
 # Extracting data
 
-We are interested in 11 top loci. 
+We are interested in 11 top loci.
 
 ```{r}
 library(openxlsx)
 variant_list <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
+variant_list852 <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"), sheet = "Variants_20211111")
+
+
 DT::datatable(variant_list)
 
 ```
+
+```{r}
+
+gwas_sumstats_top <- merge(gwas_sumstats, variant_list852, 
+                           by.x = "rsID", by.y = "RSID", 
+                           sort = FALSE, all.y = TRUE)
+
+```
+
+
+# MAF vs Effects
+
+```{r}
+library(dplyr)
+gwas_sumstats_topr <- gwas_sumstats_top %>%
+         arrange(desc(Type))
+
+p1 <- ggscatter(gwas_sumstats_topr,
+                x = "MAF",
+                y = "Effect",
+                xlab = "minor allele frequency",
+                ylab = "effect size",
+                ylim = c(-0.45, 0.45),
+                color = "Type", fill = "Type",
+                palette = c(uithof_color[4], 
+                            uithof_color[16], 
+                            uithof_color[28]),
+                repel = TRUE, 
+                label = gwas_sumstats_topr$TargetGene, 
+                # label.rectangle = TRUE,
+                # legend = "none",
+                show.legend.text = FALSE,
+                ggtheme = theme_pubr()) + 
+                # ggrepel::geom_text_repel(label = gwas_sumstats_top$rsID) +
+                geom_hline(yintercept = 0, linetype = "dashed", size = 0.50, color = uithof_color[26]) + 
+                theme(axis.line.x = element_blank()) 
+
+print(p1)
+
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".topvariants852_effect_vs_freq.png"), plot = last_plot())
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".topvariants852_effect_vs_freq.pdf"), plot = last_plot())
+ggsave(filename = paste0(PLOT_loc, "/", Today, ".topvariants852_effect_vs_freq.eps"), plot = last_plot())
+
+
+```
+
+# Cleaning
 
 Since we don't need all the data, we will drop some here.
 
 ```{r}
 gwas_sumstats_racer <- subset(gwas_sumstats,
-                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue")
-                              )
+                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
 
 saveRDS(gwas_sumstats_racer, file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
-```
 
+```
 
 # Session information
 
-------
+------------------------------------------------------------------------
 
-    Version:      v1.1.0
-    Last update:  2022-01-25
+    Version:      v1.2.0
+    Last update:  2022-01-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to parse GWAS summary statistics.
-    Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
-    
+    Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan.
+
     Changes log
+    * v1.2.0 Added effect vs frequency graph.
     * v1.1.0 Reorganize folders and this script.
     * v1.0.1 Creating regional association plots for the top hits.
     * v1.0.0 Initial version. 
 
-------
+------------------------------------------------------------------------
 
 ```{r eval = TRUE}
 sessionInfo()
 ```
 
-
 # Saving environment
+
 ```{r Saving}
-rm(gwas_sumstats)
+# saving the data
+# saveRDS(gwas_sumstats, file = paste0(OUT_loc, "/gwas_sumstats_complete.rds"))
+
+# removing it
+rm(gwas_sumstats, gwas_sumstats_racer)
+
+# saving the environment
 save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".Parsing_GWASSumStats.RData"))
 ```
 
-
-------
-<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
-------
-
-  
+|                                                                                                                                               |
+|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| <sup>© 1979-2022 Sander W. van der Laan \| s.w.vanderlaan[at]gmail[dot]com \| [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup> |
