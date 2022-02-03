@@ -1,4 +1,6 @@
-# General functions
+################################################################################
+# GENERAL FUNCTIONS
+################################################################################
 
 # Auto installer
 install.packages.auto <- function(x) { 
@@ -28,12 +30,18 @@ install.packages.auto <- function(x) {
   }
 }
 
-# RACER singleRegionalAssocPlot
+################################################################################
+# REGIONAL ASSOCIATION PLOTTING
+################################################################################
 
+
+# RACER singleRegionalAssocPlot
 singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_coding", 
           plotby, gene_plot = NULL, snp_plot = NULL, start_plot = NULL, 
           end_plot = NULL, label_lead = FALSE, 
-          grey_colors = FALSE, gene_track_h = 3, gene_name_s = 2.5) 
+          grey_colors = FALSE, 
+          cred_set = FALSE, 
+          gene_track_h = 3, gene_name_s = 2.5) 
   {
   if (missing(assoc_data)) {
     stop("Please provide a data set to plot.")
@@ -143,14 +151,26 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   in.dt = dplyr::filter(in.dt, .data$POS > start) %>% dplyr::filter(.data$POS < 
                                                                       end)
   if (label_lead == TRUE) {
+    message("Determining lead SNP")
     lsnp_row = which(in.dt$LABEL == "LEAD")
     label_data = in.dt[lsnp_row, ]
     if (dim(label_data)[1] == 0) {
-      lsnp_row = in.dt[in.dt$LOG10P == max(in.dt$LOG10P), 
-      ]
+      lsnp_row = in.dt[in.dt$LOG10P == max(in.dt$LOG10P), ]
       label_data = lsnp_row[1, ]
     }
   }
+  
+  if (cred_set == TRUE) {
+    message("Collecting posterior probabilities")
+    ppsnp_row = which(in.dt$Posterior_Prob >= 0)
+    pp_data = in.dt[ppsnp_row, ]
+    if (dim(pp_data)[1] == 0) {
+      ppsnp_row = in.dt[in.dt$LOG10P == max(in.dt$LOG10P), ]
+      pp_data = ppsnp_row[1, ]
+    }
+  }
+  
+  
   message("Generating Plot")
   if ("LD" %in% colnames(in.dt) && "LD_BIN" %in% colnames(in.dt)) {
     c = ggplot2::ggplot(gene_sub, ggplot2::aes_string(x = "value", 
@@ -172,11 +192,11 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
                                                                                      end), ylim = c(0, (max(gene_sub$y_value) + 0.25)))
     b = ggplot2::ggplot(in.dt, ggplot2::aes_string(x = "POS", 
                                                    y = "LOG10P", color = "LD_BIN")) + ggplot2::geom_point() + 
-      ggplot2::scale_colour_manual(values = c(`1.0-0.8` = "#DB003F", #"red", 
-                                              `0.8-0.6` = "#F59D10", #"darkorange1", 
-                                              `0.6-0.4` = "#49A01D", #"green1", 
-                                              `0.4-0.2` = "#1290D9", #"skyblue1", 
-                                              `0.2-0.0` = "#4C81BF", #"navyblue", 
+      ggplot2::scale_colour_manual(values = c(`1.0-0.8` = "#DC0000FF", # "#DB003F", #"red", 
+                                              `0.8-0.6` = "#F39B7FFF", # "#F59D10", #"darkorange1", 
+                                              `0.6-0.4` = "#00A087FF", # "#49A01D", #"green1", 
+                                              `0.4-0.2` = "#4DBBD5FF", # "#1290D9", #"skyblue1", 
+                                              `0.2-0.0` = "#3C5488FF", # "#4C81BF", #"navyblue", 
                                               `NA` = "#A2A3A4" # "grey"
                                               ), 
                                    drop = FALSE) + 
@@ -232,8 +252,8 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
     b = b + geom_point(data = label_data, 
                        aes_string(x = "POS", 
                                   y = "LOG10P"), 
-                       color = "#9A3480", #"purple")
-                       fill = "#9A3480",
+                       color = "#8491B4FF", # "#9A3480", #"purple")
+                       fill = "#8491B4FF", # "#9A3480",
                        size = 4, shape = 23) 
     
     b = b + geom_text(data = label_data, 
@@ -243,6 +263,30 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   }
   if (grey_colors == TRUE) {
     b = b + geom_point(color = "#A2A3A4", fill = "#A2A3A4")
+  }
+  
+  if (cred_set == TRUE) {
+
+    b = b + geom_point(data = pp_data, 
+                       aes_string(x = "POS", 
+                                  y = "LOG10P")) +
+      geom_point(aes(colour = Posterior_Prob)) +
+      scale_colour_gradient(
+        low = "#F39B7FFF", # "#132B43",
+        high = "#DC0000FF", # "#56B1F7",
+        space = "Lab",
+        na.value = "#A2A3A4", # "grey50",
+        guide = "colourbar",
+        aesthetics = "colour"
+      ) + scale_fill_gradient(
+        low = "#F39B7FFF", # "#132B43",
+        high = "#DC0000FF", # "#56B1F7",
+        space = "Lab",
+        na.value = "#A2A3A4", # "grey50",
+        guide = "colourbar",
+        aesthetics = "colour"
+      )
+    
   }
   
   ggpubr::ggarrange(b, c, heights = c(gene_track_h, 1), nrow = 2, ncol = 1, 

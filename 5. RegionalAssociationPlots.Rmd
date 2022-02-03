@@ -167,6 +167,12 @@ install_github("oliviasabik/RACER")
 
 library(ggrepel)
 
+# install ggsci
+install.packages.auto("ggsci")
+
+# plotly
+install.packages.auto("plotly")
+
 ```
 
 _We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
@@ -208,7 +214,7 @@ Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
 ###	24	green			      #49A01D (73,160,29)				      =>	24/Y
 ###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
 ###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
-###
+### 
 ###	ADDITIONAL COLORS
 ###	27	midgrey			#D7D8D7
 ###	28	verylightgrey	#ECECEC"
@@ -234,6 +240,19 @@ uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
 # Introduction
 
 We will parse the data to create regional association plots for each of the 11 loci. 
+
+# Setting the NPG colors
+
+```{r}
+library("scales")
+pal_npg("nrc")(10)
+show_col(pal_npg("nrc")(10))
+
+# show_col(pal_npg("nrc", alpha = 0.6)(10))
+
+```
+
+# show_col(pal_npg("nrc", alpha = 0.6)(10))
 
 # Load data
 
@@ -396,6 +415,8 @@ for(VARIANT in variants_of_interest_cxcl12){
 ```
 ## Additional regional plots
 
+### Listing regions of interest
+
 We want to create some regional association plots to combine with teh UCSC browser tracks, thus we need the exact same regions. 
 
 ```{r}
@@ -406,8 +427,43 @@ DT::datatable(add_list)
 
 ```
 
+### Credible Sets
+
+We want to color the credible sets, which we load here.
+
+```{r}
+credset <- as_tibble(fread(paste0(PROJECT_loc, "/CredibleSets/CAC_EUR_AFR_cred_set_all_loci_50kb.txt")))
+
+credset
+```
+
+### Combining GWAS with Credible Set
+
+We want to add the posterior probabilities and make a variable to color by.
+```{r}
+
+gwas_sumstats_racer_credset <- merge(gwas_sumstats_racer, 
+                                     credset %>% select(RSID, Posterior_Prob), 
+                                     sort = FALSE,
+                                     by.x = "rsID", by.y = "RSID", all.x = TRUE) %>%
+  # mutate(., Posterior_Prob = ifelse(is.na(Posterior_Prob), 0, Posterior_Prob)) %>%
+  mutate(CredSet = case_when(Posterior_Prob > 0 ~ '95% credible set',
+                             TRUE ~ 'not in credible set'))
+
+head(gwas_sumstats_racer_credset)
+
+table(gwas_sumstats_racer_credset$CredSet)
+
+summary(gwas_sumstats_racer_credset$Posterior_Prob)
+
+```
+
+### Plotting
+
 ```{r}
 library(RACER)
+# library(plotly)
+
 # Make directory for plots
 ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER")), 
        dir.create(file.path(PROJECT_loc, "/RACER")), 
@@ -426,35 +482,37 @@ for(VARIANT in variants_of_interest){
   tempNAME <- subset(add_list, rsID == VARIANT)[,3]
 
   cat("\nSubset required data.\n")
-  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp <- subset(gwas_sumstats_racer_credset, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
   
   cat("\nFormatting association data.\n")
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
 
   cat("\nGetting LD data.\n")
-  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  # temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
-  # source(paste0(PROJECT_loc, "/scripts/functions.R"))
-  p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
+  
+  p1 <- singlePlotRACER2(assoc_data = temp_f, 
                          chr = tempCHR, build = "hg19", 
                          plotby = "coord", snp_plot = VARIANT,
                          start_plot = tempSTART, end_plot = tempEND,
                          label_lead = FALSE, 
-                         grey_colors = TRUE, gene_track_h = 3, gene_name_s = 1.75)
+                         grey_colors = FALSE, 
+                         cred_set = TRUE, 
+                         gene_track_h = 3, gene_name_s = 1.75)
   
   print(p1)
   
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = p1)
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = p1)
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = p1)
 
+  # print(ggplotly(p1))
   rm(temp, p1,
-     temp_f, temp_f_ld,
+     temp_f,
      tempCHR, tempSTART, tempEND,
      VARIANT, tempNAME)
-  
 }
 ```
 
@@ -463,13 +521,14 @@ for(VARIANT in variants_of_interest){
 
 ------
 
-    Version:      v1.2.0
-    Last update:  2022-01-28
+    Version:      v1.3.0
+    Last update:  2022-02-03
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.3.0 Added the credible sets to the aditional regions.
     * v1.2.0 Added in aditional regions.
     * v1.1.0 Created PNG and PDF of top loci regions.
     * v1.0.0 Initial version. 
