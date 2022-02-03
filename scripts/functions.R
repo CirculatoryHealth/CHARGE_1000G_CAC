@@ -248,3 +248,4 @@ singlePlotRACER2 <- function (assoc_data, chr, build = "hg19", set = "protein_co
   ggpubr::ggarrange(b, c, heights = c(gene_track_h, 1), nrow = 2, ncol = 1, 
                     common.legend = TRUE, legend = "right")
 }
+

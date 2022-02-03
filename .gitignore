@@ -76,7 +76,6 @@ _gsdata_/
 \~$*
 
 # Data
-*.csv
 *.sav
 *.sas7bdat
 *.log
@@ -85,6 +84,10 @@ _gsdata_/
 20200912_CandidateSNPsforSander.xlsx
 20201127_GeneList_15042020.xlsx
 20210127_Overview_Genes_MMBos_Sander.xlsx
+
+# PolarMorphism
+PolarMorphism/eur_w_ld_chr*
+PolarMorphism/proxySearch_CAC_CAD*
 
 
 
