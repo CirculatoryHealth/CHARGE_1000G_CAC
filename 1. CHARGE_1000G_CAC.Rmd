@@ -1,5 +1,5 @@
 ---
-title: "Association of CAC susceptibility loci plaque characteristics."
+title: "Prepare Athero-Express Biobank Study phenotype data."
 author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
@@ -62,10 +62,13 @@ PLINK_loc=paste0(STORAGE_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
 
-PROJECT_loc = paste0(PLINK_loc, "/analyses/lookups/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+PROJECT_loc = paste0(PLINK_loc, "/git/CirculatoryHealth/molqtl")
 
 # use this if there is relevant information here.
-TARGET_loc = paste0(GENOMIC_loc, "/Athero-Express/Forms/2020/AE_20200512_COL_MKAVOUSI_MBOS_CHARGE_1000G_CAC")
+ifelse(!dir.exists(file.path(PROJECT_loc, "/targets")), 
+       dir.create(file.path(PROJECT_loc, "/targets")), 
+       FALSE)
+TARGET_loc = paste0(PROJECT_loc,"/targets")
 
 ### SOME VARIABLES WE NEED DOWN THE LINE
 TRAIT_OF_INTEREST = "CAC" # Phenotype

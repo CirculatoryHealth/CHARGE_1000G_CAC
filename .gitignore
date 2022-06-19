@@ -50,6 +50,7 @@ vignettes/*.pdf
 
 # System files
 *.DS_Store
+SNP/.DS_Store
 
 # vim files
 *~
@@ -88,6 +89,4 @@ _gsdata_/
 # PolarMorphism
 PolarMorphism/eur_w_ld_chr*
 PolarMorphism/proxySearch_CAC_CAD*
-
-
 
