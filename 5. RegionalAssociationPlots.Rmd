@@ -50,14 +50,14 @@ _Set locations and working directories..._
 ```{r LocalSystem, echo = FALSE}
 ### Operating System Version
 ### MacBook Pro
-ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
+# ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
 # STORAGE_loc = "/Volumes/LaCie/"
-STORAGE_loc = "/Users/swvanderlaan/"
+# STORAGE_loc = "/Users/swvanderlaan/"
 
 ### MacBook Air
-# ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
+ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
 # STORAGE_loc = "/Volumes/LaCie/"
-# STORAGE_loc = "/Users/slaan3/"
+STORAGE_loc = "/Users/slaan3/"
 
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
@@ -123,6 +123,8 @@ source(paste0(PROJECT_loc, "/scripts/functions.R"))
 
 _... and load those packages._
 ```{r loading_packages, message=FALSE, warning=FALSE}
+install.packages.auto("R.utils")
+
 install.packages.auto("readr")
 install.packages.auto("optparse")
 install.packages.auto("tools")
@@ -256,10 +258,47 @@ show_col(pal_npg("nrc")(10))
 
 # Load data
 
-We need to load the data first.
+## European and African-American
+
+We need to load the meta-analysis summary statistics from the European - African-American ancestry analysis first.
 ```{r}
 
-gwas_sumstats_racer <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
+gwas_sumstats_racer_EA_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA_AA.rds"))
+gwas_sumstats_racer_EA_AA <- gwas_sumstats_racer
+
+```
+
+## European-only
+
+We need to load the meta-analysis summary statistics from the European-only ancestry analysis.
+```{r}
+
+gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
+                         showProgress = TRUE)
+
+gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
+                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+
+saveRDS(gwas_sumstats_racer_EA, file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+
+gwas_sumstats_racer_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+
+```
+
+
+## African-American-only
+
+We need to load the meta-analysis summary statistics from the African-American-only ancestry analysis.
+```{r}
+gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.unfiltered.txt.gz"),
+                         showProgress = TRUE)
+
+gwas_sumstats_racer_AA <- subset(gwas_sumstats,
+                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+
+saveRDS(gwas_sumstats_racer_AA, file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
+
+gwas_sumstats_racer_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
 
 ```
 
@@ -267,7 +306,7 @@ gwas_sumstats_racer <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"
 
 ## Top 11 loci
 
-We are interested in 11 top loci. 
+We are interested in 11 top loci. We will plot these using the EU-AA-ancestry data.
 
 ```{r}
 library(openxlsx)
@@ -521,13 +560,14 @@ for(VARIANT in variants_of_interest){
 
 ------
 
-    Version:      v1.3.0
-    Last update:  2022-02-03
+    Version:      v1.4.0
+    Last update:  2022-06-21
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.4.0 Update with AA data.
     * v1.3.0 Added the credible sets to the aditional regions.
     * v1.2.0 Added in aditional regions.
     * v1.1.0 Created PNG and PDF of top loci regions.
