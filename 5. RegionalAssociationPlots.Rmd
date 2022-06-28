@@ -25,6 +25,43 @@ editor_options:
   chunk_output_type: inline
 ---
 
+# Setup
+We will clean the environment, setup the locations, define colors, and create a datestamp.
+
+_Clean the environment._
+```{r echo = FALSE}
+# rm(list = ls())
+
+```
+
+_Set locations and working directories..._
+```{r LocalSystem, echo = FALSE}
+source("scripts/local.system.R")
+
+```
+
+_... a package-installation function ..._
+```{r}
+source("scripts/functions.R")
+```
+
+
+_... and load those packages._
+```{r loading_packages, message=FALSE, warning=FALSE}
+source("scripts/packages05.R")
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors}
+
+Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
+Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
+
+source("scripts/colors.R")
+
+```
+
 ```{r global_options, include = FALSE}
 # further define some knitr-options.
 knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/', 
@@ -38,206 +75,6 @@ ggplot2::theme_set(ggplot2::theme_minimal())
 pander::panderOptions("table.split.table", Inf)
 ```
 
-# Setup
-We will clean the environment, setup the locations, define colors, and create a datestamp.
-
-_Clean the environment._
-```{r echo = FALSE}
-rm(list = ls())
-```
-
-_Set locations and working directories..._
-```{r LocalSystem, echo = FALSE}
-### Operating System Version
-### MacBook Pro
-# ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
-# STORAGE_loc = "/Volumes/LaCie/"
-# STORAGE_loc = "/Users/swvanderlaan/"
-
-### MacBook Air
-ROOT_loc = "/Users/slaan3/OneDrive - UMC Utrecht"
-# STORAGE_loc = "/Volumes/LaCie/"
-STORAGE_loc = "/Users/slaan3/"
-
-GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
-AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
-LAB_loc = paste0(GENOMIC_loc, "/LabBusiness")
-
-PLINK_loc=paste0(STORAGE_loc,"/PLINK")
-AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
-MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
-
-GWAS_loc=paste0(PLINK_loc,"/_GWAS_Datasets/_CHARGE_CAC")
-
-PROJECT_loc = paste0(PLINK_loc, "/analyses/consortia/CHARGE_1000G_CAC")
-
-# use this if there is relevant information here.
-TARGET_loc = paste0(PROJECT_loc, "/targets")
-
-### SOME VARIABLES WE NEED DOWN THE LINE
-TRAIT_OF_INTEREST = "CAC" # Phenotype
-PROJECTNAME = "CAC"
-
-cat("\nCreate a new analysis directory...\n")
-ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
-       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
-       FALSE)
-ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
-
-ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
-       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
-       FALSE)
-PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
-
-ifelse(!dir.exists(file.path(PLOT_loc, "/QC")), 
-       dir.create(file.path(PLOT_loc, "/QC")), 
-       FALSE)
-QC_loc = paste0(PLOT_loc,"/QC")
-
-ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
-       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
-       FALSE)
-OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
-
-ifelse(!dir.exists(file.path(ANALYSIS_loc, "/BASELINE")), 
-       dir.create(file.path(ANALYSIS_loc, "/BASELINE")), 
-       FALSE)
-BASELINE_loc = paste0(ANALYSIS_loc, "/BASELINE")
-
-ifelse(!dir.exists(file.path(PROJECT_loc, "/SNP")), 
-       dir.create(file.path(PROJECT_loc, "/SNP")), 
-       FALSE)
-SNP_loc = paste0(PROJECT_loc, "/SNP")
-
-setwd(paste0(PROJECT_loc))
-getwd()
-list.files()
-
-```
-
-_... a package-installation function ..._
-```{r}
-source(paste0(PROJECT_loc, "/scripts/functions.R"))
-```
-
-
-_... and load those packages._
-```{r loading_packages, message=FALSE, warning=FALSE}
-install.packages.auto("R.utils")
-
-install.packages.auto("readr")
-install.packages.auto("optparse")
-install.packages.auto("tools")
-install.packages.auto("dplyr")
-install.packages.auto("tidyr")
-install.packages.auto("naniar")
-
-# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
-# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
-# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
-library(data.table)
-
-install.packages.auto("tidyverse")
-install.packages.auto("knitr")
-install.packages.auto("DT")
-install.packages.auto("eeptools")
-
-install.packages.auto("haven")
-install.packages.auto("tableone")
-
-install.packages.auto("BlandAltmanLeh")
-
-# Install the devtools package from Hadley Wickham
-install.packages.auto('devtools')
-library(devtools) 
-
-# for plotting
-install.packages.auto("pheatmap")
-install.packages.auto("forestplot")
-install.packages.auto("ggplot2")
-install.packages.auto("ggpubr")
-install.packages.auto("ggrepel")
-
-install.packages.auto("UpSetR")
-
-devtools::install_github("thomasp85/patchwork")
-
-# For regional association plots
-install_github("oliviasabik/RACER") 
-
-# Install ggrepel package if needed
-
-library(ggrepel)
-
-# install ggsci
-install.packages.auto("ggsci")
-
-# plotly
-# install.packages.auto("plotly")
-
-```
-
-_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
-```{r Setting: Colors}
-
-Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
-Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
-
-### UtrechtScienceParkColoursScheme
-###
-### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
-### Forsomefunctionsyoushoulddividethesenumbersby255.
-###
-###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
-###---------------------------------------------------------------------------------------
-###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
-###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
-###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
-###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
-###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
-###	6	  pink			      #D5267B (213,38,123)				      =>	6		
-###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
-###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
-###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
-###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
-###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
-###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
-###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
-###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
-###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
-###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
-###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
-###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
-###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
-###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
-###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
-###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
-###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
-###	24	green			      #49A01D (73,160,29)				      =>	24/Y
-###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
-###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
-### 
-###	ADDITIONAL COLORS
-###	27	midgrey			#D7D8D7
-###	28	verylightgrey	#ECECEC"
-###	29	white			#FFFFFF
-###	30	black			#000000
-###----------------------------------------------------------------------------------------------
-
-uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
-                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
-                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
-                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
-                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
-
-uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
-                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
-                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
-                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
-                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
-                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
-### ----------------------------------------------------------------------------
-```
 
 # Introduction
 
@@ -263,8 +100,7 @@ show_col(pal_npg("nrc")(10))
 We need to load the meta-analysis summary statistics from the European - African-American ancestry analysis first.
 ```{r}
 
-gwas_sumstats_racer_EA_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA_AA.rds"))
-gwas_sumstats_racer_EA_AA <- gwas_sumstats_racer
+gwas_sumstats_racer_EA_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_complete_racer.EA_AA.rds"))
 
 ```
 
@@ -273,13 +109,16 @@ gwas_sumstats_racer_EA_AA <- gwas_sumstats_racer
 We need to load the meta-analysis summary statistics from the European-only ancestry analysis.
 ```{r}
 
-gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
-                         showProgress = TRUE)
-
-gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
-                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
-
-saveRDS(gwas_sumstats_racer_EA, file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+# gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
+#                          showProgress = TRUE)
+# names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+# saveRDS(gwas_sumstats_EA, file = paste0(OUT_loc, "/gwas_sumstats.EA.rds"))
+# 
+# gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_EA, file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+# rm(gwas_sumstats_EA)
 
 gwas_sumstats_racer_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
 
@@ -290,19 +129,32 @@ gwas_sumstats_racer_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.E
 
 We need to load the meta-analysis summary statistics from the African-American-only ancestry analysis.
 ```{r}
-gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.unfiltered.txt.gz"),
-                         showProgress = TRUE)
+# gwas_sumstats_unfiltered_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.unfiltered.txt.gz"),
+#                          showProgress = TRUE)
+# saveRDS(gwas_sumstats_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered.AA.rds"))
 
-gwas_sumstats_racer_AA <- subset(gwas_sumstats,
-                              select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# gwas_sumstats_racer_unfiltered_AA <- subset(gwas_sumstats_unfiltered_AA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
+# 
+# gwas_sumstats_racer_unfiltered_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
 
-saveRDS(gwas_sumstats_racer_AA, file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
-
+# 
+# gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.filtered.txt.gz"),
+#                          showProgress = TRUE)
+# saveRDS(gwas_sumstats_AA, file = paste0(OUT_loc, "/gwas_sumstats.AA.rds"))
+# 
+# gwas_sumstats_racer_AA <- subset(gwas_sumstats_AA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_AA, file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
+# rm(gwas_sumstats_AA)
 gwas_sumstats_racer_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
 
 ```
 
-# Regional association plotting
+# Regional association plotting: EU-AA-ancestry
 
 ## Top 11 loci
 
@@ -317,8 +169,8 @@ DT::datatable(variant_list)
 ```
 
 
+### All loci
 Let's do some plotting.
-
 
 ```{r}
 library(RACER)
@@ -330,7 +182,7 @@ RACER_loc = paste0(PROJECT_loc,"/RACER")
 
 variants_of_interest <- c(variant_list$rsID)
 
-variants_of_interest_fewgenes <- c("rs9349379", "rs3844006", "rs2854746", "rs4977575", "rs9633535", "rs11063120", "rs9515203", "rs7182103")
+variants_of_interest_fewgenes <- c("rs9349379")#, "rs3844006", "rs2854746", "rs4977575", "rs9633535", "rs11063120", "rs9515203", "rs7182103")
 
 for(VARIANT in variants_of_interest){
   cat(paste0("Getting data for ", VARIANT,".\n"))
@@ -341,7 +193,7 @@ for(VARIANT in variants_of_interest){
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
-  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp <- subset(gwas_sumstats_racer_EA_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
   
   cat("\nFormatting association data.\n")
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
@@ -350,7 +202,6 @@ for(VARIANT in variants_of_interest){
   temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
-  # source(paste0(PROJECT_loc, "/scripts/functions.R"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
                                chr = tempCHR, build = "hg19", 
                                plotby = "snp", snp_plot = VARIANT,
@@ -358,23 +209,26 @@ for(VARIANT in variants_of_interest){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
-  
-  rm(temp, p1,
-     temp_f, temp_f_ld,
-     tempCHR, tempSTART, tempEND,
-     VARIANT, tempVARIANTnr)
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+
+  # rm(temp, p1,
+  #    temp_f, temp_f_ld,
+  #    tempCHR, tempSTART, tempEND,
+  #    VARIANT, tempVARIANTnr)
   
 }
 
 
 ```
 
+### Loci with many genes
+These are genetic loci with many genes. 
+
 ```{r}
+
 variants_of_interest_manygenes <- c("rs7412", "rs10762577")
-source(paste0(PROJECT_loc, "/scripts/functions.R"))
 
 for(VARIANT in variants_of_interest_manygenes){
   cat(paste0("Getting data for ", VARIANT,".\n"))
@@ -385,7 +239,7 @@ for(VARIANT in variants_of_interest_manygenes){
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
-  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp <- subset(gwas_sumstats_racer_EA_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
   
   cat("\nFormatting association data.\n")
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
@@ -401,9 +255,9 @@ for(VARIANT in variants_of_interest_manygenes){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -412,9 +266,13 @@ for(VARIANT in variants_of_interest_manygenes){
   
 }
 ```
+
+### CXCL12
+
+The _CXCL12_ genetic locus.
+
 ```{r}
 variants_of_interest_cxcl12 <- c("rs10899970")
-source(paste0(PROJECT_loc, "/scripts/functions.R"))
 
 for(VARIANT in variants_of_interest_cxcl12){
   cat(paste0("Getting data for ", VARIANT,".\n"))
@@ -425,7 +283,7 @@ for(VARIANT in variants_of_interest_cxcl12){
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
-  temp <- subset(gwas_sumstats_racer, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp <- subset(gwas_sumstats_racer_EA_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
   
   cat("\nFormatting association data.\n")
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
@@ -441,9 +299,9 @@ for(VARIANT in variants_of_interest_cxcl12){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -452,6 +310,7 @@ for(VARIANT in variants_of_interest_cxcl12){
   
 }
 ```
+
 ## Additional regional plots
 
 ### Listing regions of interest
@@ -481,7 +340,7 @@ credset
 We want to add the posterior probabilities and make a variable to color by.
 ```{r}
 
-gwas_sumstats_racer_credset <- merge(gwas_sumstats_racer, 
+gwas_sumstats_racer_credset <- merge(gwas_sumstats_racer_EA_AA, 
                                      credset %>% select(RSID, Posterior_Prob), 
                                      sort = FALSE,
                                      by.x = "rsID", by.y = "RSID", all.x = TRUE) %>%
@@ -543,9 +402,9 @@ for(VARIANT in variants_of_interest){
   print(p1)
   
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = p1)
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = p1)
-  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = p1)
+  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = p1)
+  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = p1)
+  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = p1)
 
   # print(ggplotly(p1))
   rm(temp, p1,
@@ -556,12 +415,68 @@ for(VARIANT in variants_of_interest){
 ```
 
 
+## Regional association plots in African-American
+
+```{r}
+library(RACER)
+# Make directory for plots
+ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER_AA")), 
+       dir.create(file.path(PROJECT_loc, "/RACER_AA")), 
+       FALSE)
+RACER_AA_loc = paste0(PROJECT_loc,"/RACER_AA")
+
+variants_of_interest <- c(variant_list$rsID)
+
+variants_of_interest_fewgenes <- c("rs9349379", "rs3844006", "rs2854746", "rs4977575", "rs9633535", "rs11063120", "rs9515203", "rs7182103", 
+                                   "rs7412", "rs10762577", 
+                                   "rs10899970")
+
+for(VARIANT in variants_of_interest){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
+
+  cat("\nSubset required data.\n")
+  temp <- subset(gwas_sumstats_racer_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  
+  cat("\nFormatting association data.\n")
+  temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
+
+  cat("\nGetting LD data.\n")
+  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", lead_snp = VARIANT)
+  
+  cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
+  # source(paste0(PROJECT_loc, "/scripts/functions.R"))
+  p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
+                               chr = tempCHR, build = "hg19", 
+                               plotby = "snp", snp_plot = VARIANT,
+                               label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
+  
+  print(p1)
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.eps"), plot = last_plot())
+  
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
+  
+}
+
+```
+
+
 # Session information
 
 ------
 
     Version:      v1.4.0
-    Last update:  2022-06-21
+    Last update:  2022-06-27
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
@@ -577,13 +492,14 @@ for(VARIANT in variants_of_interest){
 
 ```{r eval = TRUE}
 sessionInfo()
+
 ```
 
 
 # Saving environment
 ```{r Saving}
-
 save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".RegionalAssociationPlots.RData"))
+
 ```
 
 

@@ -51,6 +51,9 @@ vignettes/*.pdf
 # System files
 *.DS_Store
 SNP/.DS_Store
+CAC/BASELINE/.DS_Store
+CAC/OUTPUT/.DS_Store
+CAC/PLOTS/.DS_Store
 
 # vim files
 *~
