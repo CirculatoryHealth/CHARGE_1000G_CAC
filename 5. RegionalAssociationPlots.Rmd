@@ -453,7 +453,7 @@ for(VARIANT in variants_of_interest){
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
   
   # cat("\nGetting LD data.\n")
-  #temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", lead_snp = VARIANT)
+  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", lead_snp = VARIANT)
 
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
 
@@ -462,14 +462,6 @@ for(VARIANT in variants_of_interest){
                          plotby = "coord", snp_plot = VARIANT,
                          start_plot = tempSTART, end_plot = tempEND,
                          label_lead = FALSE, gene_track_h = 2, gene_name_s = 1.75)
-   # p1 <- singlePlotRACER2(assoc_data = temp_f, 
-   #                       chr = tempCHR, build = "hg19", 
-   #                       plotby = "coord", snp_plot = VARIANT,
-   #                       start_plot = tempSTART, end_plot = tempEND,
-   #                       label_lead = FALSE, 
-   #                       grey_colors = FALSE, 
-   #                       cred_set = TRUE, 
-   #                       gene_track_h = 3, gene_name_s = 1.75)
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
@@ -580,13 +572,14 @@ for(VARIANT in variants_of_interest){
 
 ------
 
-    Version:      v1.4.0
-    Last update:  2022-06-27
+    Version:      v1.4.1
+    Last update:  2022-06-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.4.1 Added mirror plots and scatter plots.
     * v1.4.0 Update with AA data.
     * v1.3.0 Added the credible sets to the aditional regions.
     * v1.2.0 Added in aditional regions.

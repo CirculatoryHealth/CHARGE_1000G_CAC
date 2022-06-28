@@ -4,6 +4,7 @@
 
 install.packages.auto("R.utils")
 
+install.packages.auto("pander")
 install.packages.auto("readr")
 install.packages.auto("optparse")
 install.packages.auto("tools")
@@ -23,6 +24,7 @@ install.packages.auto("eeptools")
 
 install.packages.auto("haven")
 install.packages.auto("tableone")
+install.packages.auto("openxlsx")
 
 install.packages.auto("BlandAltmanLeh")
 
@@ -36,6 +38,26 @@ install.packages.auto("forestplot")
 install.packages.auto("ggplot2")
 install.packages.auto("ggpubr")
 install.packages.auto("UpSetR")
+
+# Sometimes you get the following:
+# devtools::install_github("thomasp85/patchwork")
+# Using github PAT from envvar GITHUB_PAT
+# Error: Failed to install 'unknown package' from GitHub:
+#   HTTP error 401.
+#   Bad credentials
+# 
+#   Rate limit remaining: 55/60
+#   Rate limit reset at: 2022-06-28 17:12:31 UTC
+
+# To solve this, do this:
+library(credentials)
+# Found git version 2.32.1 (Apple Git-133)
+# Supported HTTPS credential helpers: cache, store
+# Found OpenSSH_8.6p1, LibreSSL 3.3.6
+# Default SSH key: /Users/swvanderlaan/.ssh/id_rsa_github
+credentials::set_github_pat()
+# If prompted for GitHub credentials, enter your PAT in the password field
+# Using GITHUB_PAT from Sander W. van der Laan (credential helper: osxkeychain)
 
 devtools::install_github("thomasp85/patchwork")
 

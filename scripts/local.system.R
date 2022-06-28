@@ -4,24 +4,24 @@
 
 ### Operating System Version
 ### MacBook Pro
-# ROOT_loc = "/Users/swvanderlaan/OneDrive - UMC Utrecht"
+ROOT_loc = "/Users/swvanderlaan"
+STORAGE_loc = "/Users/swvanderlaan"
+CLOUD_loc = "/Users/swvanderlaan/Library/Mobile Documents/com~apple~CloudDocs/"
 
 ### MacBook Air
-ROOT_loc = "/Users/slaan3"
+# ROOT_loc = "/Users/slaan3"
+# STORAGE_loc = "/Users/slaan3"
+# CLOUD_loc = "/Users/slaan3/Library/Mobile Documents/com~apple~CloudDocs/"
 
+# STORAGE_loc = "/Volumes/LaCie"
 
 ### Generic 
-# STORAGE_loc = "/Volumes/LaCie"
-STORAGE_loc = "/Users/slaan3"
-
-CLOUD_loc = "/Users/slaan3/Library/Mobile Documents/com~apple~CloudDocs/"
 LAB_loc = paste0(CLOUD_loc, "/Genomics/LabBusiness")
 
 GENOMIC_loc = paste0(ROOT_loc, "/Genomics")
 AEDB_loc = paste0(GENOMIC_loc, "/Athero-Express/AE-AAA_GS_DBs")
 
 ### Genetic and genomic data
-
 PLINK_loc=paste0(STORAGE_loc,"/PLINK")
 GWAS_loc=paste0(PLINK_loc,"/_GWAS_Datasets/_CHARGE_CAC")
 
