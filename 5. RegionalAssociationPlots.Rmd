@@ -91,7 +91,6 @@ show_col(pal_npg("nrc")(10))
 
 ```
 
-# show_col(pal_npg("nrc", alpha = 0.6)(10))
 
 # Load data
 
@@ -478,6 +477,37 @@ for(VARIANT in variants_of_interest){
 
 ```
 
+# Approximate Bayes Factor colocalisation analyses
+
+The idea behind the *Approximate Bayes Factor (ABF)* analysis is that the association of each trait with SNPs in a region may be summarised by a vector of 0s and at most a single 1, with the 1 indicating the causal SNP (so, assuming a single causal SNP for each trait). 
+
+The posterior probability of each possible configuration can be calculated and so, crucially, can the posterior probabilities that the traits share their configurations. This allows us to estimate the support for the following cases, i.e. hypotheses:
+
+𝐻0: neither trait has a genetic association in the region
+𝐻1: only trait 1 has a genetic association in the region
+𝐻2: only trait 2 has a genetic association in the region
+𝐻3: both traits are associated, but with different causal variants
+𝐻4: both traits are associated and share a single causal variant
+
+To what extent do the loci between European and African-American ancestries overlap? We are working on the assumption that the 11 loci are _the_ loci and will test whether these overlap, _i.e._ colocalize.
+
+## Preparation
+
+Let's make sure we have `remotes` and `coloc` installed. 
+```{r}
+if(!require("remotes"))
+   install.packages("remotes") # if necessary
+library(remotes)
+install_github("chr1swallace/coloc@main",
+               build_vignettes = TRUE)
+
+library(coloc)
+
+```
+
+## Visualization
+
+We can create mirror and scatter plot for each region. 
 
 ```{r}
 
@@ -567,18 +597,262 @@ for(VARIANT in variants_of_interest){
 
 ```
 
+## Quantify colocalization
+
+We want to quantify the overlap. 
+
+Setting up an output directory for `coloc`.
+
+```{r}
+ifelse(!dir.exists(file.path(PROJECT_loc, "/COLOC_EA_vs_AA")), 
+       dir.create(file.path(PROJECT_loc, "/COLOC_EA_vs_AA")), 
+       FALSE)
+COLOC_EA_vs_AA_loc = paste0(PROJECT_loc,"/COLOC_EA_vs_AA")
+
+```
+
+
+### Data colleaction
+
+Preparing data for `coloc`: we require beta and standard errors for `coloc`.
+
+First the European ancestry data, next the African-American ancestry data.
+
+```{r}
+gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
+                         showProgress = TRUE)
+names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+
+gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
+                              select = c("MarkerName", "rsID", "Chr", "Position", 
+                                         "Effect", "StdErr",
+                                         "Pvalue",
+                                         "N"))
+rm(gwas_sumstats_EA)
+
+```
+
+```{r}
+gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.filtered.txt.gz"),
+                         showProgress = TRUE)
+names(gwas_sumstats_AA)[names(gwas_sumstats_AA) == "Pos"] <- "Position"
+names(gwas_sumstats_AA)[names(gwas_sumstats_AA) == "SE"] <- "StdErr"
+
+gwas_sumstats_racer_AA <- subset(gwas_sumstats_AA,
+                              select = c("MarkerName", "rsID", "Chr", "Position", 
+                                         "Effect", "StdErr",
+                                         "Pvalue",
+                                         "N"))
+rm(gwas_sumstats_AA)
+
+```
+
+### Colocalization
+
+Now we are reading to formally test the colocalization per trait. Note that `trait 1` = European ancestry; `trait 2` = African-American ancestry.
+
+```{r}
+for(VARIANT in variants_of_interest){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
+
+  cat("\nSubset required data.\n")
+  temp1 <- subset(gwas_sumstats_racer_EA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp2 <- subset(gwas_sumstats_racer_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+
+  cat("\nCheck temp1 data.\n")
+  temp1 <- rename_with(temp1, tolower)
+  
+  # correcting column names
+  temp1 <- rename(temp1, beta = effect)
+  temp1 <- rename(temp1, se = stderr)
+  temp1 <- rename(temp1, snp = rsid)
+  
+  # calculating things
+  temp1$varbeta <- temp1$se^2
+  
+  temp1 <- as.list(temp1) # critical, as coloc expects a list of variables
+  
+  temp1$type <- "quant"
+  temp1$sdY <- 1
+
+  coloc::check_dataset(temp1, warn.minp = 1e-10)
+  
+  cat("\nCheck temp2 data.\n")
+  temp2 <- rename_with(temp2, tolower)
+  
+  # correcting column names
+  temp2 <- rename(temp2, beta = effect)
+  temp2 <- rename(temp2, se = stderr)
+  temp2 <- rename(temp2, snp = rsid)
+  
+  # calculating things
+  temp2$varbeta <- temp2$se^2
+  
+  temp2 <- as.list(temp2) # critical, as coloc expects a list of variables
+  
+  temp2$type <- "quant"
+  temp2$sdY <- 1
+
+  coloc::check_dataset(temp2, warn.minp = 1e-10)
+  
+  cat("\nPlot required data.\n")
+  plot_dataset(temp1)
+  plot_dataset(temp2)
+
+  res_temp1_vs_temp2_single <- coloc.abf(dataset1 = temp1, 
+                                         dataset2 = temp2)
+
+  cat("\nColocalization.\n")
+  print(res_temp1_vs_temp2_single)
+  write_lines(res_temp1_vs_temp2_single, file = paste0(COLOC_EA_vs_AA_loc, "/res_EA_vs_AA_single.",
+                                                       tempVARIANTnr,".",tempCHR,"_",tempSTART,"_",tempEND,".txt"))
+
+  coloc::sensitivity(res_temp1_vs_temp2_single, "H4 > 0.9")
+  
+  # Step 1: Call the pdf command to start the plot
+  pdf(file = paste0(COLOC_EA_vs_AA_loc, "/res_EA_vs_AA_single.",
+                    tempVARIANTnr,".",tempCHR,"_",tempSTART,"_",tempEND,".pdf"))   # The directory you want to save the file in
+  # Step 2: Create the plot with R code
+  coloc::sensitivity(res_temp1_vs_temp2_single, "H4 > 0.9")
+
+  # Step 3: Run dev.off() to create the file!
+  dev.off()
+  
+  rm(temp1, temp2,
+     # p1,p2,
+     # temp_f1, temp_f_ld1,
+     # temp_f2, temp_f_ld2,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
+  
+}
+
+```
+
+### Summary colocalization
+
+_ENPP1_/_ENPP3_ locus
+
+File: res_EA_vs_AA_single.1.6_131595002_132595002.txt
+
+c(nsnps = 891, PP.H0.abf = 0.212726180436945, PP.H1.abf = 0.0690743673677815, PP.H2.abf = 0.0214723764600455, PP.H3.abf = 0.00628185511784578, PP.H4.abf = 0.690445220617383)
+
+**Conclusion: 69.0% probability that the locus is shared between both ancestries and includes the same causal variant.**
+
+
+_IGFBP3_ locus
+
+File: res_EA_vs_AA_single.2.7_45460645_46460645.txt
+
+c(nsnps = 1147, PP.H0.abf = 0.598769555553722, PP.H1.abf = 0.108030020950978, PP.H2.abf = 0.0685581712636257, PP.H3.abf = 0.0121567818199419, PP.H4.abf = 0.212485470411732)
+
+**Conclusion: 59.9% probability that the locus is not associated in either ancestry, but 10.8 that it is European-specific, and 21.2% that it is shared between both ancestries and includes the same causal variant.**
+
+
+_CXCL12_ locus
+
+File: res_EA_vs_AA_single.3.10_44015716_45334720.txt
+
+c(nsnps = 1641, PP.H0.abf = 0.00131956785769608, PP.H1.abf = 0.847689205708678, PP.H2.abf = 0.000166925872986017, PP.H3.abf = 0.107189395862512, PP.H4.abf = 0.0436349046981281)
+
+**Conclusion: 84.8% probability that the locus is European-specific, but 4.3-10.7% probability that the locus is shared between both ancestries.**
+
+
+_ARID5B_ locus
+
+File: res_EA_vs_AA_single.4.10_63336088_64336088.txt
+
+c(nsnps = 830, PP.H0.abf = 0.153686217856268, PP.H1.abf = 0.52399742579072, PP.H2.abf = 0.0155386299541433, PP.H3.abf = 0.0527253377600635, PP.H4.abf = 0.254052388638805)
+
+**Conclusion: 52.4% probability that the locus is European-specific, but 25.4% probability that the locus is shared between both ancestries and includes different causal variants.**
+
+
+_ADK_ locus
+
+File: res_EA_vs_AA_single.5.10_75417431_76417431.txt
+
+c(nsnps = 263, PP.H0.abf = 0.0607706367611815, PP.H1.abf = 0.85213066483438, PP.H2.abf = 0.00166979761323014, PP.H3.abf = 0.0233519569734565, PP.H4.abf = 0.0620769438177522)
+
+**Conclusion: 85.2% probability that the locus is European-specific, but 2.3-6.2% probability that the locus is shared between both ancestries.**
+
+
+_FGF23_ locus
+
+File: res_EA_vs_AA_single.6.12_3986618_4986618.txt
+
+c(nsnps = 916, PP.H0.abf = 0.00446472426354749, PP.H1.abf = 0.706936091086602, PP.H2.abf = 0.00104796032447378, PP.H3.abf = 0.165810337258493, PP.H4.abf = 0.121740887066883)
+
+**Conclusion: 70.7% probability that the locus is European-specific, but 12.2-16.6% probability that the locus is shared between both ancestries.**
+
+
+_COL4A1_/_COL4A2_ locus
+
+File: res_EA_vs_AA_single.7.13_110549623_111549623.txt
+
+c(nsnps = 1401, PP.H0.abf = 0.10787176608552, PP.H1.abf = 0.739004164794562, PP.H2.abf = 0.0141999398787617, PP.H3.abf = 0.0972387717170162, PP.H4.abf = 0.0416853575241402)
+
+**Conclusion: 73.9% probability that the locus is European-specific, but 4.1-9.7% probability that the locus is shared between both ancestries.**
+
+
+_MORF4L_ locus
+
+File: res_EA_vs_AA_single.8.15_78623946_79623946.txt
+
+c(nsnps = 984, PP.H0.abf = 9.92862156724414e-05, PP.H1.abf = 0.811395804353311, PP.H2.abf = 1.82061468585998e-05, PP.H3.abf = 0.148746181818894, PP.H4.abf = 0.0397405214652622)
+
+**Conclusion: 81.1% probability that the locus is European-specific, but 14.9% probability that the locus is shared between both ancestries and includes different causal variants.**
+
+
+_PHACTR1_ locus
+
+File: res_EA_vs_AA_single.9.6_12403957_13403957.txt
+
+c(nsnps = 1082, PP.H0.abf = 2.64349916808974e-21, PP.H1.abf = 0.440110764390371, PP.H2.abf = 1.85706249346447e-22, PP.H3.abf = 0.0303883523691947, PP.H4.abf = 0.529500883240437)
+
+**Conclusion: 44.0% probability that the locus is European-specific, but 52.9% probability that the locus is shared between both ancestries and includes the same causal variant.**
+
+
+_CDKN2A_/_CDKN2B_ locus
+
+File: res_EA_vs_AA_single.10.9_21624744_22624744.txt
+
+c(nsnps = 1175, PP.H0.abf = 3.8194848005248e-38, PP.H1.abf = 0.40370772152903, PP.H2.abf = 3.70349960775562e-39, PP.H3.abf = 0.0385871394254695, PP.H4.abf = 0.557705139045494)
+
+**Conclusion: 40.4% probability that the locus is European-specific, but 55.8% probability that the locus is shared between both ancestries and includes the same causal variant.**
+
+
+_APOE_ locus
+
+File: res_EA_vs_AA_single.11.19_44912079_45912079.txt
+
+c(nsnps = 958, PP.H0.abf = 0.0109451663563229, PP.H1.abf = 0.649124092491782, PP.H2.abf = 0.00401834569685491, PP.H3.abf = 0.238218007619045, PP.H4.abf = 0.0976943878359947)
+
+**Conclusion: 64.9% probability that the locus is European-specific, but 23.8% probability that the locus is shared between both ancestries and includes different causal variants.**
+
+
+Overarching conclusions:
+
+1. The European-specific analysis is better powered than the African-American-specific analysis
+2. Taking into account the issues of power, it is more likely that the majority of loci are shared between ancestries. The _ADK_ and _COL4A1_/_COL4A2_ loci are the least shared between ancestries, and both analyses are well-_under_powered for the _IGFBP3_ locus. 
+3. Given sufficient and more equal sample sizes between ancestries more firm conclusions could be drawn, but applying Occam's razor it is more likely that these loci are shared between ancestries than not.
 
 # Session information
 
 ------
 
-    Version:      v1.4.1
+    Version:      v1.4.2
     Last update:  2022-06-28
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.4.2 Added formal quantification of colocalization between ancestries.
     * v1.4.1 Added mirror plots and scatter plots.
     * v1.4.0 Update with AA data.
     * v1.3.0 Added the credible sets to the aditional regions.
