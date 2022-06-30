@@ -79,6 +79,14 @@ You can load this project in RStudio by opening the file called 'CHARGE_1000G_CA
 ## Project structure
 
 <!--  You can add rows to this table, using "|" to separate columns.         -->
+File                   | Description                | Usage         
+---------------------- | -------------------------- | --------------
+README.md              | Description of project     | Human editable
+CHARGE_1000G_CAC.Rproj | Project file               | Loads project 
+LICENSE                | User permissions           | Read only     
+.worcs                 | WORCS metadata YAML        | Read only     
+prepare_data.R         | Script to process raw data | Human editable
+renv.lock              | Reproducible R environment | Read only     
 File                       | Description                            | Usage         
 ---------------------------| -------------------------------------- | --------------
 README.md                  | Description of project                 | Human editable
