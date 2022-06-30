@@ -12,8 +12,6 @@ We have bulk RNAseq (n = 635 samples) and single-cell RNAseq data, genome-wide m
 - Where target genes expressed, which cell types? 
 - Are any of the variants associated to plaque characteristics?
 
-Ideally, we would like to map the variants to the expression and methylation data (molecular QTL mapping), but this is pending finalizing our molQTL mapping.
-
 ## Methods
 
 ### Mapping genes to single cells 
@@ -42,7 +40,7 @@ phenotypes are:
 Continuous variables were inverse-rank normal transformated, indicated by `_rankNorm`. 
 
 **Figure 1: Genotyped individuals in the Athero-Express Biobank Study**
-![Genotyped individuals in the Athero-Express Biobank Study](CAC/PLOTS/20211203.overlap.AEDB_AEGS123.UpSetR.png)
+![Genotyped individuals in the Athero-Express Biobank Study](PLOTS/20211203.overlap.AEDB_AEGS123.UpSetR.png)
 
 ### Gene expression
 
@@ -51,25 +49,7 @@ Continuous variables were inverse-rank normal transformated, indicated by `_rank
 For the expression analysis we used carotid plaque-derived bulk RNAseq data and queried it for the gene list. Below a graph showing the overall expression of the genes (not all are in the data) compared to the mean expression of 1,000 randomly picked genes. 
 
 **Figure 2: Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study**
-![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211214.TargetExpression_vs_1000genes.png)
-
-
-**Figure 3: Correlation between target genes in carotid plaques from the Athero-Express Biobank Study**
-![Correlation between target genes in carotid plaques from the Athero-Express Biobank Study](bulkRNAseq/AERNA/PLOTS/20211214.correlations.target_genes.png)
-
-
-We assessed the correlation with plaque characteristics (mentioned above) and secondary major adverse cardiovascular events (MACE [major]) at 30 days and 3 years after CEA. 
-
-#### Single cell RNAseq
-
-We projected target genes to the single-cell RNAseq data derived from 37 carotid plaque samples. We identified cell communities (Figure 2), mapped and projected target gene expression to the cell communities (Figure 3). 
-
-**Figure 4: Cell communities identified in carotid plaques from the Athero-Express Biobank Study**
-![Cell communities identified in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20211130.UMAP.png)
-
-
-**Figure 5: Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study**
-![Dotplot showing expression of target genes per cell type in carotid plaques from the Athero-Express Biobank Study](scRNAseq/AESCRNA/PLOTS/20211130.DotPlot.Targets.png)
+![Overall expression of target genes in carotid plaques from the Athero-Express Biobank Study](PLOTS/20211214.TargetExpression_vs_1000genes.png)
 
 
 ## Where do I start?
@@ -78,31 +58,43 @@ You can load this project in RStudio by opening the file called 'CHARGE_1000G_CA
 
 ## Project structure
 
+1. CHARGE_1000G_CAC.Rmd
+2. bulkRNAseq.Rmd
+3. scRNAseq.Rmd
+4. Parsing_GWASSumStats.Rmd
+5. RegionalAssociationPlots.Rmd
+6. PolarMorphism.Rmd
+
 <!--  You can add rows to this table, using "|" to separate columns.         -->
-File                   | Description                | Usage         
----------------------- | -------------------------- | --------------
-README.md              | Description of project     | Human editable
-CHARGE_1000G_CAC.Rproj | Project file               | Loads project 
-LICENSE                | User permissions           | Read only     
-.worcs                 | WORCS metadata YAML        | Read only     
-prepare_data.R         | Script to process raw data | Human editable
-renv.lock              | Reproducible R environment | Read only     
-File                       | Description                            | Usage         
----------------------------| -------------------------------------- | --------------
-README.md                  | Description of project                 | Human editable
-LICENSE                    | User permissions                       | Read only     
-.worcs                     | WORCS metadata YAML                    | Read only     
-renv.lock                  | Reproducible R environment             | Read only     
-images                     | Images directory                       | Human editable
-scripts                    | Script to process some things          | Human editable
-bulkRNAseq                 | Bulk RNAseq scripts and results        | Human editable
-CAC                        | General results                        | Human editable
-CredibleSets               | The credible sets used                 | Human editable
-scRNAseq                   | Single-cell RNAseq scripts and results | Human editable
-SNP                        | SNP analyses scripts and results       | Human editable
-Parsing_GWASSumStats       | Creating regional assoc. plots         | Human editable
-CHARGE_1000G_CAC           | Script to process raw data             | Human editable
-CHARGE_1000G_CAC.Rproj     | Project file                           | Loads project 
+File                               | Description                                                              | Usage         
+-----------------------------------| ------------------------------------------------------------------------ | --------------
+README.md                          | Description of project                                                   | Human editable
+LICENSE                            | User permissions                                                         | Read only     
+.worcs                             | WORCS metadata YAML                                                      | Read only     
+renv.lock                          | Reproducible R environment                                               | Read only     
+renv                               | Reproducible R directory                                                 | Read only     
+BASELINE                           | Baseline tables directory                                                | Human editable
+COLOC_EA_vs_AA                     | Colocalization results directory                                         | Human editable
+CredibleSets                       | Credible sets as calculated and used                                     | Human editable
+images                             | Images directory                                                         | Human editable
+OUTPUT                             | Generic output directory                                                 | Human editable
+PLOTS                              | Generic plot directory                                                   | Human editable
+PolarMorphism                      | PolarMorphism results directory                                          | Human editable
+RACER                              | Racer output directory                                                   | Human editable
+RACER_AA                           | Racer African-American (AA) only output directory                        | Human editable
+RACER_EA_vs_AA                     | Racer European-AA output directory                                       | Human editable
+scripts                            | Script to process some things                                            | Human editable
+SNP                                | SNP analyses scripts and results                                         | Human editable
+targets                            | Variant and gene target directory                                        | Human editable
+"1. CHARGE_1000G_CAC.Rmd"          | Setting up work, including baseline, for AE                              | Human editable
+"2. bulkRNAseq.Rmd"                | Bulk RNAseq analyses in AE (not used)                                    | Human editable
+"3. scRNAseq.Rmd"                  | Single-cell RNAseq analyses in AE (not used)                             | Human editable
+"4. Parsing_GWASSumStats.Rmd"      | Parsing GWAS summary statistics for other analyses                       | Human editable
+"5. RegionalAssociationPlots.Rmd"  | Regional association plots, mirror and scatter, colocalization plots     | Human editable
+"6. PolarMorphism.Rmd"             | Execute genome-wide overlap-analysis using PolarMorphism                 | Human editable
+CHARGE_1000G_CAC                   | Script to process raw data                                               | Human editable
+CHARGE_1000G_CAC.Rproj             | Project file                                                             | Loads project 
+
 
 <!--  You can consider adding the following to this file:                    -->
 <!--  * A citation reference for your project                                -->
@@ -147,13 +139,14 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
 
 #### Changes log
 
-    Version:      v1.0.7
-    Last update:  2021-12-14
+    Version:      v1.2
+    Last update:  2022-06-30
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.2.0 Cleanup of project. Re-initialize and snapshot renv. Also added colocalization between ancestries. 
     * v1.1.0 Rename. Cleaning up of project (archiving/removing unused code and results).
     * v1.0.7 Update to the count data.
     * v1.0.6 Update to WORCS framework.
