@@ -62,7 +62,7 @@ PLINK_loc=paste0(STORAGE_loc,"/PLINK")
 AEGSQC_loc =  paste0(PLINK_loc, "/_AE_ORIGINALS/AEGS_COMBINED_QC2018")
 MICHIMP_loc=paste0(PLINK_loc,"/_AE_ORIGINALS/AEGS_COMBINED_EAGLE2_1000Gp3v5HRCr11")
 
-PROJECT_loc = paste0(PLINK_loc, "/git/CirculatoryHealth/molqtl")
+PROJECT_loc = paste0(PLINK_loc, "/analyses/consortia/CHARGE_1000G_CAC")
 
 # use this if there is relevant information here.
 ifelse(!dir.exists(file.path(PROJECT_loc, "/targets")), 
