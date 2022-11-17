@@ -3,15 +3,10 @@
 ################################################################################
 
 ### Operating System Version
-### MacBook Pro
-ROOT_loc = "/Users/swvanderlaan"
-STORAGE_loc = "/Users/swvanderlaan"
-CLOUD_loc = "/Users/swvanderlaan/Library/Mobile Documents/com~apple~CloudDocs/"
-
 ### MacBook Air
-# ROOT_loc = "/Users/slaan3"
-# STORAGE_loc = "/Users/slaan3"
-# CLOUD_loc = "/Users/slaan3/Library/Mobile Documents/com~apple~CloudDocs/"
+ROOT_loc = "/Users/slaan3"
+STORAGE_loc = "/Users/slaan3"
+CLOUD_loc = "/Users/slaan3/Library/Mobile Documents/com~apple~CloudDocs/"
 
 # STORAGE_loc = "/Volumes/LaCie"
 
