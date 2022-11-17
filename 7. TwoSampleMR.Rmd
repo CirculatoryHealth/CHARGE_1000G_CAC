@@ -1,6 +1,6 @@
 ---
-title: "Causal effects of _Potassium_ and _Sodium_ on cardiometabolic traits"
-author: '[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan'
+title: "Causal effects of ardiometabolic risk factors on CAC"
+author: '[Sander W. van der Laan, PhD](https://vanderlaan.science)'
 date: '`r Sys.Date()`'
 output:
   html_notebook:
@@ -22,210 +22,67 @@ output:
     df_print: paged
     toc: yes
 mainfont: Helvetica
-subtitle: Two Sample MR
+subtitle: "A 'druggable-MI-targets' project"
 editor_options:
   chunk_output_type: inline
 ---
-  
-# Setting up the environment.
-```{r global_options, include=FALSE}
-# further define some knitr-options.
-knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/',
-                      eval = TRUE, warning = FALSE, message = FALSE)
-```
 
-Clearing the environment in case anything exists.
-```{r ClearEnvironment, echo = FALSE}
-rm(list = ls())
-```
+# Setup
+We will clean the environment, setup the locations, define colors, and create a datestamp.
 
-Some general settings.
-```{r GeneralSettings}
-cat("\nSetting working directory and listing its contents.\n")
-# MacBook Pro
-ROOT_loc="/Users/swvanderlaan/OneDrive - UMC Utrecht"
-PLINK_loc=paste0(ROOT_loc,"/PLINK")
-GENOMICS_loc=paste0(ROOT_loc,"/Genomics")
-
-### Generic Locations
-AEDB_loc = paste0(GENOMICS_loc, "/AE-AAA_GS_DBs")
-LAB_loc = paste0(GENOMICS_loc, "/LabBusiness")
-RAWDATA = paste0(ROOT_loc, "/PLINK/analyses/consortia/GWAS_PotassiumSodium/")
-RESULTS = paste0(RAWDATA, "/ANALYSIS2018")
-
-PROJECT_loc = paste0(RAWDATA, "/ANALYSIS2018/TwoSampleMR")
-
-### SOME VARIABLES WE NEED DOWN THE LINE
-cat("\nDefining phenotypes and datasets.\n")
-PROJECTNAME="RESULTS"
-TARGET_GENES="PotSod"
-
-cat("\nCreate a new analysis directory, including subdirectories.\n")
-# Analysis
-ifelse(!dir.exists(file.path(PROJECT_loc, "/",PROJECTNAME)), 
-       dir.create(file.path(PROJECT_loc, "/",PROJECTNAME)), 
-       FALSE)
-ANALYSIS_loc = paste0(PROJECT_loc,"/",PROJECTNAME)
-
-# Plots
-ifelse(!dir.exists(file.path(ANALYSIS_loc, "/PLOTS")), 
-       dir.create(file.path(ANALYSIS_loc, "/PLOTS")), 
-       FALSE)
-PLOT_loc = paste0(ANALYSIS_loc,"/PLOTS")
-
-# Output files
-ifelse(!dir.exists(file.path(ANALYSIS_loc, "/OUTPUT")), 
-       dir.create(file.path(ANALYSIS_loc, "/OUTPUT")), 
-       FALSE)
-OUT_loc = paste0(ANALYSIS_loc, "/OUTPUT")
-
-cat("\nSetting working directory and listing its contents.\n")
-setwd(paste0(PROJECT_loc))
-getwd()
-list.files()
+_Clean the environment._
+```{r echo = FALSE}
+# rm(list = ls())
 
 ```
 
-
-Package-installation function.
-```{r Function: installations, echo=FALSE}
-install.packages.auto <- function(x) { 
-  x <- as.character(substitute(x)) 
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else { 
-    # Update installed packages - this may mean a full upgrade of R, which in turn
-    # may not be warrented. 
-    # update.install.packages.auto(ask = FALSE) 
-    eval(parse(text = sprintf("install.packages(\"%s\", dependencies = TRUE, repos = \"https://cloud.r-project.org/\")", x)))
-  }
-  if(isTRUE(x %in% .packages(all.available = TRUE))) { 
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  } else {
-    if (!requireNamespace("BiocManager"))
-      install.packages("BiocManager")
-    # BiocManager::install() # this would entail updating installed packages, which in turned may not be warrented
-    eval(parse(text = sprintf("BiocManager::install(\"%s\")", x)))
-    eval(parse(text = sprintf("require(\"%s\")", x)))
-  }
-}
-```
-
-Load those packages.
-```{r Setting: loading_packages, echo=FALSE, message=FALSE, warning=FALSE}
-# Packages needed for tabulating results, parsing data, or making graphics
-install.packages.auto("devtools")
-library(devtools) 
-
-install.packages.auto("readr")
-install.packages.auto("optparse")
-install.packages.auto("tools")
-install.packages.auto("dplyr")
-install.packages.auto("tidyr")
-install.packages.auto("tidylog")
-library("tidylog", warn.conflicts = FALSE)
-install.packages.auto("naniar")
-
-# To get 'data.table' with 'fwrite' to be able to directly write gzipped-files
-# Ref: https://stackoverflow.com/questions/42788401/is-possible-to-use-fwrite-from-data-table-with-gzfile
-# install.packages("data.table", repos = "https://Rdatatable.gitlab.io/data.table")
-install.packages.auto("data.table")
-
-install.packages.auto("tidyverse")
-install.packages.auto("knitr")
-install.packages.auto("DT")
-install.packages.auto("eeptools")
-
-install.packages.auto("haven")
-install.packages.auto("tableone")
-
-install.packages.auto("ggpubr")
-
-# TwoSample MR
-# devtools::install_github("MRCIEU/TwoSampleMR")
-library("TwoSampleMR")
+_Set locations and working directories..._
+```{r LocalSystem, echo = FALSE}
+source("scripts/local.system.R")
 
 ```
 
-We will create a datestamp and define the Utrecht Science Park Colour Scheme.
-```{r Setting: Colors, echo=FALSE}
+_... a package-installation function ..._
+```{r}
+source("scripts/functions.R")
+```
+
+
+_... and load those packages._
+```{r loading_packages, message=FALSE, warning=FALSE}
+source("scripts/packages05.R")
+
+```
+
+_We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+```{r Setting: Colors}
 
 Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
 Today.Report = format(as.Date(as.POSIXlt(Sys.time())), "%A, %B %d, %Y")
 
-### UtrechtScienceParkColoursScheme
-###
-### WebsitetoconvertHEXtoRGB:http://hex.colorrrs.com.
-### Forsomefunctionsyoushoulddividethesenumbersby255.
-### 
-###	No.	Color			      HEX	(RGB)						              CHR		  MAF/INFO
-###---------------------------------------------------------------------------------------
-###	1	  yellow			    #FBB820 (251,184,32)				      =>	1		or 1.0>INFO
-###	2	  gold			      #F59D10 (245,157,16)				      =>	2		
-###	3	  salmon			    #E55738 (229,87,56)				      =>	3		or 0.05<MAF<0.2 or 0.4<INFO<0.6
-###	4	  darkpink		    #DB003F ((219,0,63)				      =>	4		
-###	5	  lightpink		    #E35493 (227,84,147)				      =>	5		or 0.8<INFO<1.0
-###	6	  pink			      #D5267B (213,38,123)				      =>	6		
-###	7	  hardpink		    #CC0071 (204,0,113)				      =>	7		
-###	8	  lightpurple	    #A8448A (168,68,138)				      =>	8		
-###	9	  purple			    #9A3480 (154,52,128)				      =>	9		
-###	10	lavendel		    #8D5B9A (141,91,154)				      =>	10		
-###	11	bluepurple		  #705296 (112,82,150)				      =>	11		
-###	12	purpleblue		  #686AA9 (104,106,169)			      =>	12		
-###	13	lightpurpleblue	#6173AD (97,115,173/101,120,180)	=>	13		
-###	14	seablue			    #4C81BF (76,129,191)				      =>	14		
-###	15	skyblue			    #2F8BC9 (47,139,201)				      =>	15		
-###	16	azurblue		    #1290D9 (18,144,217)				      =>	16		or 0.01<MAF<0.05 or 0.2<INFO<0.4
-###	17	lightazurblue	  #1396D8 (19,150,216)				      =>	17		
-###	18	greenblue		    #15A6C1 (21,166,193)				      =>	18		
-###	19	seaweedgreen	  #5EB17F (94,177,127)				      =>	19		
-###	20	yellowgreen		  #86B833 (134,184,51)				      =>	20		
-###	21	lightmossgreen	#C5D220 (197,210,32)				      =>	21		
-###	22	mossgreen		    #9FC228 (159,194,40)				      =>	22		or MAF>0.20 or 0.6<INFO<0.8
-###	23	lightgreen	  	#78B113 (120,177,19)				      =>	23/X
-###	24	green			      #49A01D (73,160,29)				      =>	24/Y
-###	25	grey			      #595A5C (89,90,92)				        =>	25/XY	or MAF<0.01 or 0.0<INFO<0.2
-###	26	lightgrey		    #A2A3A4	(162,163,164)			      =>	26/MT
-### 
-###	ADDITIONAL COLORS
-###	27	midgrey			#D7D8D7
-###	28	verylightgrey	#ECECEC"
-###	29	white			#FFFFFF
-###	30	black			#000000
-###----------------------------------------------------------------------------------------------
+source("scripts/colors.R")
 
-uithof_color = c("#FBB820","#F59D10","#E55738","#DB003F","#E35493","#D5267B",
-                 "#CC0071","#A8448A","#9A3480","#8D5B9A","#705296","#686AA9",
-                 "#6173AD","#4C81BF","#2F8BC9","#1290D9","#1396D8","#15A6C1",
-                 "#5EB17F","#86B833","#C5D220","#9FC228","#78B113","#49A01D",
-                 "#595A5C","#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
-
-uithof_color_legend = c("#FBB820", "#F59D10", "#E55738", "#DB003F", "#E35493",
-                        "#D5267B", "#CC0071", "#A8448A", "#9A3480", "#8D5B9A",
-                        "#705296", "#686AA9", "#6173AD", "#4C81BF", "#2F8BC9",
-                        "#1290D9", "#1396D8", "#15A6C1", "#5EB17F", "#86B833",
-                        "#C5D220", "#9FC228", "#78B113", "#49A01D", "#595A5C",
-                        "#A2A3A4", "#D7D8D7", "#ECECEC", "#FFFFFF", "#000000")
-
-#ggplot2 default color palette
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length = n + 1)
-  hcl(h = hues, l = 65, c = 100)[1:n]
-}
-
-### ----------------------------------------------------------------------------
 ```
 
-
+```{r global_options, include = FALSE}
+# further define some knitr-options.
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8, fig.path = 'Figures/', 
+                      wwarning = TRUE, # show warnings during codebook generation
+  message = TRUE, # show messages during codebook generation
+  error = TRUE, # do not interrupt codebook generation in case of errors,
+                # usually better for debugging
+  echo = TRUE,  # show R code
+                      eval = TRUE)
+ggplot2::theme_set(ggplot2::theme_minimal())
+pander::panderOptions("table.split.table", Inf)
+```
 
 # Two Sample MR
 
-We performed the generalized summary-data based Mendelian randomization (GSMR) to assess the extent to which cardiometabolic traits are causal to FABP4 levels. 
+Here we want to test whether cardiometabolic risk factors are causal to coronary artery calcification using Two Sample Mendelian Randomization (MR) as described [elsewhere](https://mrcieu.github.io/TwoSampleMR/index.html). To this end we will:
 
-Here we want to test whether FABP4 levels are causal to cardiometabolic traits using Two Sample Mendelian Randomization (MR) as described [elsewhere](https://mrcieu.github.io/TwoSampleMR/index.html). To this end we will:
-
-- load the data from the potassium/sodium GWAS
-- load the results from the cardiometabolic trait using the proxies (r<sup>2</sup> = 1.0) of the top variants in the PotSod GWAS
+- load the results from the cardiometabolic risk factors 
+- load the data from CAC GWAS using the proxies (r<sup>2</sup> = 1.0) of the top variants in the cardiometabolic risk factors GWAS'
 
 
 # Load results
@@ -1157,7 +1014,7 @@ rm(res, het, plt, sin, loo, instr_disc_m3, instr_disc_m2,
 ------
   
     Version:      v1.0.3
-    Last update:  2021-04-08
+    Last update:  2022-11-17
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get perform TwoSample MR.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -1186,7 +1043,7 @@ save.image(paste0(PROJECT_loc, "/","TwoSampleMR.RData"))
 
 ------
 
-<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
 ------
   
   
