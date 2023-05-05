@@ -1,6 +1,6 @@
 ---
 title: "Prepare Athero-Express Biobank Study phenotype data."
-author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+author: "[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
   html_notebook:
@@ -183,6 +183,7 @@ devtools::install_github("thomasp85/patchwork")
 ```
 
 _We will create a datestamp and define the Utrecht Science Park Colour Scheme_.
+
 ```{r Setting: Colors}
 
 Today = format(as.Date(as.POSIXlt(Sys.time())), "%Y%m%d")
@@ -1754,13 +1755,14 @@ c("Plaque_Vulnerability_Index") %>% write_lines(paste0(SNP_loc, "/phenotypes.pvi
 
 ------
 
-    Version:      v1.0.6
-    Last update:  2021-12-03
+    Version:      v1.1.0
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.1.0 Cleaned up project.
     * v1.0.6 Update code and fix coding of plaque vulnerability index (PVI) to work with SNPTEST.
     * v1.0.5 Update analysis with credible set SNPs.
     * v1.0.4 Update with PVI. Removed PCSK9.
@@ -1785,7 +1787,7 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".results.RData"))
 
 
 ------
-<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2023 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://vanderlaan.science).</sup>
 ------
 
   

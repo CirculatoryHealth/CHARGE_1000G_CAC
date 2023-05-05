@@ -1,6 +1,6 @@
 ---
 title: "Causal effects of ardiometabolic risk factors on CAC"
-author: '[Sander W. van der Laan, PhD](https://vanderlaan.science)'
+author: '[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com'
 date: '`r Sys.Date()`'
 output:
   html_notebook:
@@ -1013,14 +1013,15 @@ rm(res, het, plt, sin, loo, instr_disc_m3, instr_disc_m2,
 
 ------
   
-    Version:      v1.0.3
-    Last update:  2022-11-17
+    Version:      v1.0.4
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get perform TwoSample MR.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
     
     Versions
-    * v1.0.3 Updat to the color scheme for TwoSample MR on model 2 and 3.
+    * v1.0.4 Cleaned up the project.
+    * v1.0.3 Update to the color scheme for TwoSample MR on model 2 and 3.
     * v1.0.2 Add TwoSample MR for model 2 and model 3. 
     * v1.0.1 Add F-statistics to summary results.
     * v1.0.0 Initial version.
@@ -1043,7 +1044,7 @@ save.image(paste0(PROJECT_loc, "/","TwoSampleMR.RData"))
 
 ------
 
-<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2023 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://vanderlaan.science).</sup>
 ------
   
   

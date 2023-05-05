@@ -1,6 +1,6 @@
 ---
 title: "Regional association plotting of 11 loci associated with CAC."
-author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+author: "[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
   html_notebook:
@@ -82,6 +82,7 @@ We will parse the data to create regional association plots for each of the 11 l
 
 # Setting the NPG colors
 
+Here just making a heatmap of the colors.
 ```{r}
 library("scales")
 pal_npg("nrc")(10)
@@ -91,67 +92,6 @@ show_col(pal_npg("nrc")(10))
 
 ```
 
-
-# Load data
-
-## European and African-American
-
-We need to load the meta-analysis summary statistics from the European - African-American ancestry analysis first.
-```{r}
-
-gwas_sumstats_racer_EA_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_complete_racer.EA_AA.rds"))
-
-```
-
-## European-only
-
-We need to load the meta-analysis summary statistics from the European-only ancestry analysis.
-```{r}
-
-# gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
-#                          showProgress = TRUE)
-# names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
-# saveRDS(gwas_sumstats_EA, file = paste0(OUT_loc, "/gwas_sumstats.EA.rds"))
-# 
-# gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
-#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
-# 
-# saveRDS(gwas_sumstats_racer_EA, file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
-# rm(gwas_sumstats_EA)
-
-gwas_sumstats_racer_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
-
-```
-
-
-## African-American-only
-
-We need to load the meta-analysis summary statistics from the African-American-only ancestry analysis.
-```{r}
-# gwas_sumstats_unfiltered_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.unfiltered.txt.gz"),
-#                          showProgress = TRUE)
-# saveRDS(gwas_sumstats_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered.AA.rds"))
-
-# gwas_sumstats_racer_unfiltered_AA <- subset(gwas_sumstats_unfiltered_AA,
-#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
-# 
-# saveRDS(gwas_sumstats_racer_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
-# 
-# gwas_sumstats_racer_unfiltered_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
-
-# 
-# gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.filtered.txt.gz"),
-#                          showProgress = TRUE)
-# saveRDS(gwas_sumstats_AA, file = paste0(OUT_loc, "/gwas_sumstats.AA.rds"))
-# 
-# gwas_sumstats_racer_AA <- subset(gwas_sumstats_AA,
-#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
-# 
-# saveRDS(gwas_sumstats_racer_AA, file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
-# rm(gwas_sumstats_AA)
-gwas_sumstats_racer_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
-
-```
 
 # Regional association plotting: EU-AA-ancestry
 
@@ -163,13 +103,29 @@ We are interested in 11 top loci. We will plot these using the EU-AA-ancestry da
 library(openxlsx)
 variant_list <- read.xlsx(paste0(TARGET_loc, "/Variants.xlsx"), sheet = "TopLoci")
 
-DT::datatable(variant_list)
+head(variant_list)
 
 ```
 
 
 ### All loci
 Let's do some plotting.
+
+```{r}
+variants_of_interest <- c(variant_list$rsID)
+variants_of_interest
+length(variants_of_interest)
+```
+
+## Load data European and African-American
+
+We need to load the meta-analysis summary statistics from the European - African-American ancestry analysis first.
+```{r}
+
+gwas_sumstats_racer_EA_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_complete_racer.EA_AA.rds"))
+
+```
+
 
 ```{r}
 library(RACER)
@@ -179,16 +135,14 @@ ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER")),
        FALSE)
 RACER_loc = paste0(PROJECT_loc,"/RACER")
 
-variants_of_interest <- c(variant_list$rsID)
-
-variants_of_interest_fewgenes <- c("rs9349379")#, "rs3844006", "rs2854746", "rs4977575", "rs9633535", "rs11063120", "rs9515203", "rs7182103")
+variants_of_interest_fewgenes <- c("rs10899970") # "rs9349379", "rs3844006", "rs2854746", "rs4977575", "rs10899970", "rs9633535", "rs10762577", "rs11063120", "rs9515203", "rs7182103", "rs7412"
 
 for(VARIANT in variants_of_interest){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
@@ -198,24 +152,28 @@ for(VARIANT in variants_of_interest){
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
 
   cat("\nGetting LD data.\n")
-  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  temp_f_ld = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT), 
+    LD)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
-                               chr = tempCHR, build = "hg19", 
-                               plotby = "snp", snp_plot = VARIANT,
-                               label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
+                         chr = tempCHR, build = "hg19", 
+                         plotby = "coord", snp_plot = VARIANT,
+                         start_plot = tempSTART, end_plot = tempEND,
+                         label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
 
-  # rm(temp, p1,
-  #    temp_f, temp_f_ld,
-  #    tempCHR, tempSTART, tempEND,
-  #    VARIANT, tempVARIANTnr)
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
   
 }
 
@@ -233,8 +191,8 @@ for(VARIANT in variants_of_interest_manygenes){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
@@ -244,7 +202,10 @@ for(VARIANT in variants_of_interest_manygenes){
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
 
   cat("\nGetting LD data.\n")
-  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  temp_f_ld = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT), 
+    LD)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
@@ -254,9 +215,9 @@ for(VARIANT in variants_of_interest_manygenes){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -277,8 +238,8 @@ for(VARIANT in variants_of_interest_cxcl12){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
@@ -288,7 +249,10 @@ for(VARIANT in variants_of_interest_cxcl12){
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
 
   cat("\nGetting LD data.\n")
-  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
+  temp_f_ld = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "EUR", lead_snp = VARIANT), 
+    LD)
   
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
   p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
@@ -298,9 +262,9 @@ for(VARIANT in variants_of_interest_cxcl12){
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
-  # ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.eps"), plot = last_plot())
   
   rm(temp, p1,
      temp_f, temp_f_ld,
@@ -401,9 +365,9 @@ for(VARIANT in variants_of_interest){
   print(p1)
   
   cat(paste0("Saving image for ", VARIANT,".\n"))
-  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.png"), plot = p1)
-  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.pdf"), plot = p1)
-  # ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.eps"), plot = p1)
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.credset.png"), plot = p1)
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.credset.pdf"), plot = p1)
+  ggsave(filename = paste0(RACER_loc, "/", tempNAME, ".", Today, ".",VARIANT,".",tempSTART,".",tempEND,".regional_assoc.credset.eps"), plot = p1)
 
   # print(ggplotly(p1))
   rm(temp, p1,
@@ -414,9 +378,40 @@ for(VARIANT in variants_of_interest){
 ```
 
 
-## Regional association plots in African-American
+# Regional association plots in African-American
 
 Note here that we plot the region, and not based on the lead variant of the EA-AA analyses.
+
+## Load data African-American-only
+
+We need to load the meta-analysis summary statistics from the African-American-only ancestry analysis.
+```{r}
+# gwas_sumstats_unfiltered_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.unfiltered.txt.gz"),
+#                          showProgress = TRUE)
+# saveRDS(gwas_sumstats_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered.AA.rds"))
+
+# gwas_sumstats_racer_unfiltered_AA <- subset(gwas_sumstats_unfiltered_AA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_unfiltered_AA, file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
+# 
+# gwas_sumstats_racer_unfiltered_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_unfiltered_racer.AA.rds"))
+
+# 
+# gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.filtered.txt.gz"),
+#                          showProgress = TRUE)
+# saveRDS(gwas_sumstats_AA, file = paste0(OUT_loc, "/gwas_sumstats.AA.rds"))
+# 
+# gwas_sumstats_racer_AA <- subset(gwas_sumstats_AA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_AA, file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
+# rm(gwas_sumstats_AA)
+gwas_sumstats_racer_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.AA.rds"))
+
+```
+
+## Plotting 
 
 ```{r}
 library(RACER)
@@ -426,23 +421,18 @@ ifelse(!dir.exists(file.path(PROJECT_loc, "/RACER_AA")),
        FALSE)
 RACER_AA_loc = paste0(PROJECT_loc,"/RACER_AA")
 
-variants_of_interest <- c(variant_list$rsID)
+# Plotting is handled a bit differently
+# "rs3844006", # throws an error which I don't understand immediately - could be that the variant is not present in AA 1000G data
+# "rs9633535", # this one throws an LD error
+#  
+variants_of_interest_fewgenes_aa <- c("rs9349379", "rs3844006", "rs2854746", "rs10899970", "rs9633535", "rs10762577", "rs11063120", "rs9515203", "rs7182103", "rs7412")
 
-variants_of_interest_fewgenes <- c("rs9349379", 
-                                   "rs3844006", # throws an error which I don't understand immediately - could be that the variant is not present in AA 1000G data
-                                   "rs2854746", "rs4977575", 
-                                   "rs10899970",
-                                   "rs9633535", # this one throws an LD error
-                                   "rs10762577",
-                                   "rs11063120", "rs9515203", "rs7182103",
-                                   "rs7412")
-
-for(VARIANT in variants_of_interest){
+for(VARIANT in variants_of_interest_fewgenes_aa){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
@@ -452,15 +442,21 @@ for(VARIANT in variants_of_interest){
   temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
   
   # cat("\nGetting LD data.\n")
-  temp_f_ld = RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", lead_snp = VARIANT)
+  temp_f_ld = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", 
+                   lead_snp = "rs4576508",
+                   auto_snp = FALSE), 
+    LD)
 
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
 
-  p1 <- singlePlotRACER2(assoc_data = temp_f, 
+  p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
                          chr = tempCHR, build = "hg19", 
-                         plotby = "coord", snp_plot = VARIANT,
+                         plotby = "coord", 
+                         snp_plot = VARIANT,
                          start_plot = tempSTART, end_plot = tempEND,
-                         label_lead = FALSE, gene_track_h = 2, gene_name_s = 1.75)
+                         label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
   
   print(p1)
   cat(paste0("Saving image for ", VARIANT,".\n"))
@@ -475,19 +471,67 @@ for(VARIANT in variants_of_interest){
   
 }
 
+# chr9-rs4977575: rs7470682 is the most significant but not present in LDlink; alternative rs4576508 is present and plotted
+variants_of_interest_fewgenes_aa_9p21 <- c("rs4977575")
+
+for(VARIANT in variants_of_interest_fewgenes_aa_9p21){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
+
+  cat("\nSubset required data.\n")
+  temp <- subset(gwas_sumstats_racer_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+
+  cat("\nFormatting association data.\n")
+  temp_f = RACER::formatRACER(assoc_data = temp, chr_col = 3, pos_col = 4, p_col = 5)
+  
+  # cat("\nGetting LD data.\n")
+  temp_f_ld = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f, rs_col = 2, pops = "AFR", 
+                   lead_snp = "rs4576508",
+                   auto_snp = FALSE), 
+    LD)
+
+  cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
+
+  p1 <- singlePlotRACER2(assoc_data = temp_f_ld, 
+                         chr = tempCHR, build = "hg19", 
+                         plotby = "coord", 
+                         snp_plot = VARIANT,
+                         start_plot = tempSTART, end_plot = tempEND,
+                         label_lead = TRUE, gene_track_h = 2, gene_name_s = 1.75)
+  
+  print(p1)
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.png"), plot = last_plot())
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.pdf"), plot = last_plot())
+  ggsave(filename = paste0(RACER_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_assoc.AA.eps"), plot = last_plot())
+
+  rm(temp, p1,
+     temp_f, temp_f_ld,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
+  
+}
+
+
 ```
 
 # Approximate Bayes Factor colocalisation analyses
 
-The idea behind the *Approximate Bayes Factor (ABF)* analysis is that the association of each trait with SNPs in a region may be summarised by a vector of 0s and at most a single 1, with the 1 indicating the causal SNP (so, assuming a single causal SNP for each trait). 
+The idea behind the *Approximate Bayes Factor (ABF)* analysis is that the association of each trait with SNPs in a region may be summarized by a vector of 0s and at most a single 1, with the 1 indicating the causal SNP (so, assuming a single causal SNP for each trait). 
 
 The posterior probability of each possible configuration can be calculated and so, crucially, can the posterior probabilities that the traits share their configurations. This allows us to estimate the support for the following cases, i.e. hypotheses:
 
-𝐻0: neither trait has a genetic association in the region
-𝐻1: only trait 1 has a genetic association in the region
-𝐻2: only trait 2 has a genetic association in the region
-𝐻3: both traits are associated, but with different causal variants
-𝐻4: both traits are associated and share a single causal variant
+- 𝐻0: neither trait has a genetic association in the region
+- 𝐻1: only trait 1 has a genetic association in the region
+- 𝐻2: only trait 2 has a genetic association in the region
+- 𝐻3: both traits are associated, but with different causal variants
+- 𝐻4: both traits are associated and share a single causal variant
 
 To what extent do the loci between European and African-American ancestries overlap? We are working on the assumption that the 11 loci are _the_ loci and will test whether these overlap, _i.e._ colocalize.
 
@@ -504,6 +548,27 @@ install_github("chr1swallace/coloc@main",
 library(coloc)
 
 ```
+
+## Load data European-only
+
+We need to load the meta-analysis summary statistics from the European-only ancestry analysis.
+```{r}
+
+# gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
+#                          showProgress = TRUE)
+# names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+# saveRDS(gwas_sumstats_EA, file = paste0(OUT_loc, "/gwas_sumstats.EA.rds"))
+# 
+# gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", "Pvalue"))
+# 
+# saveRDS(gwas_sumstats_racer_EA, file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+# rm(gwas_sumstats_EA)
+
+gwas_sumstats_racer_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_racer.EA.rds"))
+
+```
+
 
 ## Visualization
 
@@ -528,15 +593,15 @@ variants_of_interest <- c(variant_list$rsID)
 #                                    "rs10762577",
 #                                    "rs11063120", "rs9515203", "rs7182103",
 #                                    "rs7412")
-variants_of_interest_fewgenes <- c("rs10762577",
-                                   "rs11063120", "rs9515203", "rs7182103",
-                                   "rs7412")
-for(VARIANT in variants_of_interest){
+# "rs9349379", "rs3844006", "rs2854746", 
+variants_of_interest_fewgenes_aa <- c("rs10899970", "rs9633535", "rs10762577", "rs11063120", "rs9515203", "rs7182103", "rs7412")
+
+for(VARIANT in variants_of_interest_fewgenes_aa){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
@@ -548,18 +613,29 @@ for(VARIANT in variants_of_interest){
   temp_f2 = RACER::formatRACER(assoc_data = temp2, chr_col = 3, pos_col = 4, p_col = 5)
   
   # cat("\nGetting LD data.\n")
-  temp_f_ld1 = RACER::ldRACER(assoc_data = temp_f1, rs_col = 2, pops = "EUR", lead_snp = VARIANT)
-  temp_f_ld2 = RACER::ldRACER(assoc_data = temp_f2, rs_col = 2, pops = "AFR", lead_snp = VARIANT)
-
+  temp_f_ld1 = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f1, rs_col = 2, pops = "EUR", 
+                   # lead_snp = VARIANT,
+                   auto_snp = TRUE), 
+    LD)
+  
+  temp_f_ld2 = 
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f2, rs_col = 2, pops = "AFR", 
+                   # lead_snp = VARIANT,
+                   auto_snp = TRUE), 
+    LD)
   cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
 
   p1 <- mirrorPlotRACER(assoc_data1 = temp_f_ld1, 
                         assoc_data2 = temp_f_ld2, 
                         chr = tempCHR, 
                         name1 = "European ancestry", 
-                         name2 = "African-American ancestry", 
+                        name2 = "African-American ancestry", 
                         plotby = "coord", 
-                        start_plot = tempSTART, end_plot = tempEND)
+                        start_plot = tempSTART, end_plot = tempEND,
+                        label_lead = TRUE)
   
   print(p1)
   
@@ -570,7 +646,8 @@ for(VARIANT in variants_of_interest){
                          name2 = "African-American ancestry", 
                          region_start = tempSTART, 
                          region_end = tempEND, 
-                         ld_df = 1)
+                         ld_df = 1, 
+                         label = TRUE)
   
   print(p2)
   
@@ -584,7 +661,7 @@ for(VARIANT in variants_of_interest){
   ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_scatter.EA_vs_AA.pdf"), plot = p2)
   ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_scatter.EA_vs_AA.eps"), plot = p2)
 
-  
+
   rm(temp1, temp2,
      p1,p2,
      temp_f1, temp_f_ld1,
@@ -594,8 +671,91 @@ for(VARIANT in variants_of_interest){
   
 }
 
-
 ```
+
+### 9p21 
+
+```{r}
+
+# chr9-rs4977575: rs7470682 is the most significant but not present in LDlink; alternative rs4576508 is present and plotted for AA ONLY!!!
+variants_of_interest_fewgenes_aa_9p21 <- c("rs4977575")
+
+for(VARIANT in variants_of_interest_fewgenes_aa_9p21){
+  cat(paste0("Getting data for ", VARIANT,".\n"))
+
+  tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
+  tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
+
+  cat("\nSubset required data.\n")
+  temp1 <- subset(gwas_sumstats_racer_EA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp2 <- subset(gwas_sumstats_racer_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+
+  cat("\nFormatting association data.\n")
+  temp_f1 = RACER::formatRACER(assoc_data = temp1, chr_col = 3, pos_col = 4, p_col = 5)
+  temp_f2 = RACER::formatRACER(assoc_data = temp2, chr_col = 3, pos_col = 4, p_col = 5)
+
+  # cat("\nGetting LD data.\n")
+  temp_f_ld1 =
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f1, rs_col = 2, pops = "EUR",
+                   # lead_snp = VARIANT,
+                   auto_snp = TRUE),
+    LD)
+
+  temp_f_ld2 =
+    data.table::setorder( # this fixes an issue where the SNPs with LD = NA are plotted last and it appears many SNPs are not present in 1000G.
+    RACER::ldRACER(assoc_data = temp_f2, rs_col = 2, pops = "AFR",
+                   lead_snp = "rs4576508",
+                   auto_snp = FALSE),
+    LD)
+  cat(paste0("\nPlotting region surrounding ", VARIANT," on ",tempCHR,":",tempSTART,"-",tempEND,".\n"))
+
+  p1 <- mirrorPlotRACER(assoc_data1 = temp_f_ld1,
+                        assoc_data2 = temp_f_ld2,
+                        chr = tempCHR,
+                        name1 = "European ancestry",
+                        name2 = "African-American ancestry",
+                        plotby = "coord",
+                        start_plot = tempSTART, end_plot = tempEND,
+                        label_lead = TRUE)
+
+  print(p1)
+
+  p2 <- scatterPlotRACER(assoc_data1 = temp_f_ld1,
+                         assoc_data2 = temp_f_ld2,
+                         chr = tempCHR,
+                         name1 = "European ancestry",
+                         name2 = "African-American ancestry",
+                         region_start = tempSTART,
+                         region_end = tempEND,
+                         ld_df = 1,
+                         label = TRUE)
+
+  print(p2)
+
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_mirror.EA_vs_AA.png"), plot = p1)
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_mirror.EA_vs_AA.pdf"), plot = p1)
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_mirror.EA_vs_AA.eps"), plot = p1)
+
+  cat(paste0("Saving image for ", VARIANT,".\n"))
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_scatter.EA_vs_AA.png"), plot = p2)
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_scatter.EA_vs_AA.pdf"), plot = p2)
+  ggsave(filename = paste0(RACER_EA_vs_AA_loc, "/", tempVARIANTnr, ".", Today, ".",VARIANT,".regional_scatter.EA_vs_AA.eps"), plot = p2)
+
+
+  rm(temp1, temp2,
+     p1,p2,
+     temp_f1, temp_f_ld1,
+     temp_f2, temp_f_ld2,
+     tempCHR, tempSTART, tempEND,
+     VARIANT, tempVARIANTnr)
+
+}
+```
+
 
 ## Quantify colocalization
 
@@ -619,31 +779,36 @@ Preparing data for `coloc`: we require beta and standard errors for `coloc`.
 First the European ancestry data, next the African-American ancestry data.
 
 ```{r}
-gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/CAC1000G_EA_FINAL_FUMA.txt.gz"),
-                         showProgress = TRUE)
-names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+# EA
+# gwas_sumstats_EA <- fread(paste0(GWAS_loc,"/EA/CAC1000G_EA_FINAL_FUMA.txt.gz"),
+#                          showProgress = TRUE)
+# names(gwas_sumstats_EA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+# saveRDS(gwas_sumstats_EA, file = paste0(OUT_loc, "/gwas_sumstats.EA.rds"))
+# gwas_sumstats_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats.EA.rds"))
+# gwas_sumstats_coloc_EA <- subset(gwas_sumstats_EA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", 
+#                                          "Effect", "StdErr",
+#                                          "Pvalue",
+#                                          "N"))
+# rm(gwas_sumstats_EA)
+# saveRDS(gwas_sumstats_coloc_EA, file = paste0(OUT_loc, "/gwas_sumstats_coloc.EA.rds"))
+gwas_sumstats_coloc_EA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_coloc.EA.rds"))
 
-gwas_sumstats_racer_EA <- subset(gwas_sumstats_EA,
-                              select = c("MarkerName", "rsID", "Chr", "Position", 
-                                         "Effect", "StdErr",
-                                         "Pvalue",
-                                         "N"))
-rm(gwas_sumstats_EA)
-
-```
-
-```{r}
-gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/CAC1000G_AA_FINAL_FUMA.filtered.txt.gz"),
-                         showProgress = TRUE)
-names(gwas_sumstats_AA)[names(gwas_sumstats_AA) == "Pos"] <- "Position"
-names(gwas_sumstats_AA)[names(gwas_sumstats_AA) == "SE"] <- "StdErr"
-
-gwas_sumstats_racer_AA <- subset(gwas_sumstats_AA,
-                              select = c("MarkerName", "rsID", "Chr", "Position", 
-                                         "Effect", "StdErr",
-                                         "Pvalue",
-                                         "N"))
-rm(gwas_sumstats_AA)
+# AA
+# gwas_sumstats_AA <- fread(paste0(GWAS_loc,"/AA/CAC1000G_AA_FINAL_FUMA.txt.gz"),
+#                          showProgress = TRUE)
+# names(gwas_sumstats_AA)[names(gwas_sumstats_EA) == "Pos"] <- "Position"
+# saveRDS(gwas_sumstats_AA, file = paste0(OUT_loc, "/gwas_sumstats.AA.rds"))
+# gwas_sumstats_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats.AA.rds"))
+# names(gwas_sumstats_AA)[names(gwas_sumstats_AA) == "SE"] <- "StdErr"
+# gwas_sumstats_coloc_AA <- subset(gwas_sumstats_AA,
+#                               select = c("MarkerName", "rsID", "Chr", "Position", 
+#                                          "Effect", "StdErr",
+#                                          "Pvalue",
+#                                          "N"))
+# rm(gwas_sumstats_AA)
+# saveRDS(gwas_sumstats_coloc_AA, file = paste0(OUT_loc, "/gwas_sumstats_coloc.AA.rds"))
+gwas_sumstats_coloc_AA <- readRDS(file = paste0(OUT_loc, "/gwas_sumstats_coloc.AA.rds"))
 
 ```
 
@@ -656,13 +821,13 @@ for(VARIANT in variants_of_interest){
   cat(paste0("Getting data for ", VARIANT,".\n"))
 
   tempCHR <- subset(variant_list, rsID == VARIANT)[,5]
-  tempSTART <- subset(variant_list, rsID == VARIANT)[,17]
-  tempEND <- subset(variant_list, rsID == VARIANT)[,18]
+  tempSTART <- subset(variant_list, rsID == VARIANT)[,18]
+  tempEND <- subset(variant_list, rsID == VARIANT)[,19]
   tempVARIANTnr <- subset(variant_list, rsID == VARIANT)[,1]
 
   cat("\nSubset required data.\n")
-  temp1 <- subset(gwas_sumstats_racer_EA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
-  temp2 <- subset(gwas_sumstats_racer_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp1 <- subset(gwas_sumstats_coloc_EA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
+  temp2 <- subset(gwas_sumstats_coloc_AA, Chr == tempCHR & (Position >= tempSTART & Position <= tempEND))
 
   cat("\nCheck temp1 data.\n")
   temp1 <- rename_with(temp1, tolower)
@@ -834,24 +999,35 @@ c(nsnps = 958, PP.H0.abf = 0.0109451663563229, PP.H1.abf = 0.649124092491782, PP
 
 **Conclusion: 64.9% probability that the locus is European-specific, but 23.8% probability that the locus is shared between both ancestries and includes different causal variants.**
 
-
 Overarching conclusions:
 
 1. The European-specific analysis is better powered than the African-American-specific analysis
-2. Taking into account the issues of power, it is more likely that the majority of loci are shared between ancestries. The _ADK_ and _COL4A1_/_COL4A2_ loci are the least shared between ancestries, and both analyses are well-_under_powered for the _IGFBP3_ locus. 
+2. Taking into account the issues of power, it is more likely that the majority of loci are shared between ancestries. The _ADK_ and _COL4A1/COL4A2_ loci are the least shared between ancestries, and both analyses are underpowered for the _IGFBP3_ locus. 
 3. Given sufficient and more equal sample sizes between ancestries more firm conclusions could be drawn, but applying Occam's razor it is more likely that these loci are shared between ancestries than not.
+
+### Cleanup
+
+```{r}
+rm(gwas_sumstats_coloc_AA,
+   gwas_sumstats_racer_AA,
+   gwas_sumstats_coloc_EA,
+   gwas_sumstats_racer_EA)
+```
+
+
 
 # Session information
 
 ------
 
-    Version:      v1.4.2
-    Last update:  2022-06-28
+    Version:      v1.5.0
+    Last update:  2023-05-04
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.5.0 Fixed an issue with LD r2 plotting.
     * v1.4.2 Added formal quantification of colocalization between ancestries.
     * v1.4.1 Added mirror plots and scatter plots.
     * v1.4.0 Update with AA data.
@@ -876,7 +1052,7 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".RegionalAssociationPl
 
 
 ------
-<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2023 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://vanderlaan.science).</sup>
 ------
 
   

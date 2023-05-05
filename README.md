@@ -139,13 +139,14 @@ The framework was based on the [`WORCS` package](https://osf.io/zcvbs/).
 
 #### Changes log
 
-    Version:      v1.2
-    Last update:  2022-06-30
+    Version:      v1.3
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to get some Athero-Express Biobank Study baseline characteristics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.3.0 Fixed an issue with LD r2 plotting. Plus cleaned up project.
     * v1.2.0 Cleanup of project. Re-initialize and snapshot renv. Also added colocalization between ancestries. 
     * v1.1.0 Rename. Cleaning up of project (archiving/removing unused code and results).
     * v1.0.7 Update to the count data.

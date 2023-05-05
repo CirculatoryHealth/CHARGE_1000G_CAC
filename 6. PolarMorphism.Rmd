@@ -1,6 +1,6 @@
 ---
 title: "PolarMorphism: CAC vs cIMT, CAD, ischemic stroke subtypes."
-author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+author: "[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
   html_notebook:
@@ -814,13 +814,14 @@ fig
 
 ------
 
-    Version:      v1.0.0
-    Last update:  2022-02-03
+    Version:      v1.0.1
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to create plot regional association plots.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan
     
     Changes log
+    * v1.0.1 Cleaned up the project.
     * v1.0.0 Initial version. 
 
 ------
@@ -838,7 +839,7 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".PolarMorphism.RData")
 
 
 ------
-<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2023 Sander W. van der Laan | s.w.vanderlaan[at]gmail.com | [swvanderlaan.github.io](https://vanderlaan.science).</sup>
 ------
 
   

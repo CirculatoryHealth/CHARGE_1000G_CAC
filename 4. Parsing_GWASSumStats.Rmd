@@ -1,6 +1,6 @@
 ---
 title: "Parsing 1000G GWAS summary statistics for CAC."
-author: "[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan | s.w.vanderlaan@gmail.com"
+author: "[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com"
 date: "`r Sys.Date()`"
 output:
   html_notebook:
@@ -404,13 +404,14 @@ saveRDS(gwas_sumstats_racer, file = paste0(OUT_loc, "/gwas_sumstats_racer.rds"))
 
 ------------------------------------------------------------------------
 
-    Version:      v1.2.0
-    Last update:  2022-01-28
+    Version:      v1.2.1
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to parse GWAS summary statistics.
     Minimum requirements: R version 3.4.3 (2017-06-30) -- 'Single Candle', Mac OS X El Capitan.
 
     Changes log
+    * v1.2.1 Cleaned up the project.
     * v1.2.0 Added effect vs frequency graph.
     * v1.1.0 Reorganize folders and this script.
     * v1.0.1 Creating regional association plots for the top hits.
@@ -437,4 +438,4 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".Parsing_GWASSumStats.
 
 |                                                                                                                                               |
 |-----------------------------------------------------------------------------------------------------------------------------------------------|
-| <sup>© 1979-2022 Sander W. van der Laan \| s.w.vanderlaan[at]gmail[dot]com \| [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup> |
+| <sup>© 1979-2023 Sander W. van der Laan \| s.w.vanderlaan[at]gmail[dot]com \| [swvanderlaan.github.io](https://vanderlaan.science).</sup> |

@@ -1,6 +1,6 @@
 ---
 title: "Mapping CAC susceptibility loci to bulk RNAseq in carotid plaques."
-author: '[Sander W. van der Laan, PhD](https://swvanderlaan.github.io) | @swvanderlaan'
+author: '[Sander W. van der Laan, PhD](https://vanderlaan.science) | s.w.vanderlaan@gmail.com'
 date: '`r Sys.Date()`'
 output:
   html_notebook: 
@@ -2165,7 +2165,7 @@ rm(temp)
 ------
 
     Version:      v1.0.8
-    Last update:  2021-12-14
+    Last update:  2023-05-05
     Written by:   Sander W. van der Laan (s.w.vanderlaan-2[at]umcutrecht.nl).
     Description:  Script to load bulk RNA sequencing data, and perform gene expression analyses, and visualisations.
     Minimum requirements: R version 3.5.2 (2018-12-20) -- 'Eggshell Igloo', macOS Mojave (10.14.2).
@@ -2182,6 +2182,7 @@ rm(temp)
     
     
     **Changes log**
+    * v1.0.8 Cleaned up the project.
     * v1.0.7 Update to the count data.
     * v1.0.6 Update to the gene list.
     * v1.0.5 Update to the gene list.
@@ -2203,6 +2204,6 @@ save.image(paste0(PROJECT_loc, "/",Today,".",PROJECTNAME,".results.RData"))
 ```
 
 ------
-<sup>&copy; 1979-2021 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://swvanderlaan.github.io).</sup>
+<sup>&copy; 1979-2022 Sander W. van der Laan | s.w.vanderlaan-2[at]umcutrecht.nl | [swvanderlaan.github.io](https://vanderlaan.science).</sup>
 ------
 
