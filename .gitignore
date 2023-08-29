@@ -98,8 +98,22 @@ _gsdata_/
 20210127_Overview_Genes_MMBos_Sander.xlsx
 
 # PolarMorphism
+PolarMorphism/
 PolarMorphism/eur_w_ld_chr*
 PolarMorphism/proxySearch_CAC_CAD*
+6. PolarMorphism.Rmd
+6. PolarMorphism.nb.html
+
+# TwoSampleMR
+7. TwoSampleMR.Rmd
+7. TwoSampleMR.nb.html
+
+# Coloc by Sander
+COLOC_EA_vs_AA/
+
+# Parsing data for GWAS Catalog
+Parsing_GWASSumStats/
+4. Parsing_GWASSumStats.ipynb
 
 # Other stuff
 EA_AA_beta_sig_list_merged.tsv
