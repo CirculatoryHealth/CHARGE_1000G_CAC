@@ -4,6 +4,7 @@
 
 # History files
 .Rhistory
+.Rprofile
 .Rapp.history
 
 # Session Data files
@@ -83,6 +84,13 @@ _gsdata_/
 *.sav
 *.sas7bdat
 *.log
+*.csv
+*.xlsx
+*.xls
+*.pdf
+*.fff
+*.log
+*.tex
 
 20200617_IndSigSNPsforSander.xlsx
 20200912_CandidateSNPsforSander.xlsx
@@ -93,14 +101,7 @@ _gsdata_/
 PolarMorphism/eur_w_ld_chr*
 PolarMorphism/proxySearch_CAC_CAD*
 
-.Rhistory
-.Rprofile
-*.csv
-*.sav
-*.sas7bdat
-*.xlsx
-*.xls
-*.pdf
-*.fff
-*.log
-*.tex
+# Other stuff
+EA_AA_beta_sig_list_merged.tsv
+
+
